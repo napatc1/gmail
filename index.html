@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Webhook Sender</title>
+</head>
+<body>
+  <h1>Send Message to Webhook</h1>
+  <label>Webhook URL:<br>
+    <input type="text" id="webhookUrl" size="60" placeholder="Enter webhook URL here">
+  </label>
+  <br><br>
+  <label>Message:<br>
+    <textarea id="message" rows="4" cols="60" placeholder="Enter your message"></textarea>
+  </label>
+  <br><br>
+  <button onclick="sendMessage()">Send</button>
+  <p id="status"></p>
+
+  <script>
+    async function sendMessage() {
+      const url = document.getElementById('webhookUrl').value.trim();
+      const msg = document.getElementById('message').value.trim();
+      const status = document.getElementById('status');
+      status.textContent = '';
+
+      if (!url) {
+        status.textContent = 'Please enter a webhook URL.';
+        return;
+      }
+      if (!msg) {
+        status.textContent = 'Please enter a message.';
+        return;
+      }
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ text: msg })
+        });
+
+        if (response.ok) {
+          status.textContent = 'Message sent successfully!';
+        } else {
+          status.textContent = `Failed to send message. Status: ${response.status}`;
+        }
+      } catch (error) {
+        status.textContent = `Error: ${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
