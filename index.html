@@ -1,88 +1,99 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Webhook Sender</title>
-
-  <!-- Tailwind CSS -->
+  <title>Webhook Sender with Auth</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- FlyonUI CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/flyonui@1.0.0/dist/flyon.min.css" rel="stylesheet">
-
-  <style>
-    /* Alert animation for smooth appearance */
-    .fade-in {
-      animation: fadeIn 0.3s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flyonui@1.0.0/dist/flyon.min.css">
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
-  <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
-    <h1 class="text-2xl font-bold mb-6">Send Message to Webhook</h1>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen text-white">
 
-    <label class="block mb-4 text-left">
-      <span class="text-gray-300">Webhook URL:</span>
-      <input type="text" id="webhookUrl" placeholder="Enter webhook URL here"
-        class="input input-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white rounded-lg">
-    </label>
-
-    <label class="block mb-6 text-left">
-      <span class="text-gray-300">Message:</span>
-      <textarea id="message" rows="4" placeholder="Enter your message"
-        class="textarea textarea-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white rounded-lg"></textarea>
-    </label>
-
-    <button onclick="sendMessage()" class="btn btn-primary w-full rounded-lg">Send</button>
-
-    <!-- Alert container -->
-    <div id="alertBox" class="mt-4"></div>
+<div id="auth" class="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+  <h1 class="text-2xl font-bold mb-4">Login / Register</h1>
+  <input type="text" id="username" placeholder="Username" class="w-full p-2 mb-3 rounded bg-gray-700 text-white">
+  <input type="password" id="password" placeholder="Password" class="w-full p-2 mb-3 rounded bg-gray-700 text-white">
+  <div class="flex gap-2">
+    <button onclick="auth('login')" class="bg-blue-500 px-4 py-2 rounded">Login</button>
+    <button onclick="auth('register')" class="bg-green-500 px-4 py-2 rounded">Register</button>
   </div>
+  <div id="alert"></div>
+</div>
 
-  <script>
-    function showAlert(type, message) {
-      const alertBox = document.getElementById('alertBox');
-      alertBox.innerHTML = `
-        <div class="alert alert-${type} fade-in shadow-lg mt-4">
-          <span>${message}</span>
-        </div>
-      `;
+<div id="webhook" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+  <h1 class="text-2xl font-bold mb-4">Send Message</h1>
+  <input type="text" id="webhookUrl" placeholder="Webhook URL" class="w-full p-2 mb-3 rounded bg-gray-700 text-white">
+  <textarea id="message" placeholder="Message" rows="4" class="w-full p-2 mb-3 rounded bg-gray-700 text-white"></textarea>
+  <button onclick="sendMessage()" class="bg-purple-500 px-4 py-2 rounded">Send</button>
+  <div id="status" class="mt-2"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flyonui@1.0.0/dist/flyon.min.js"></script>
+<script>
+const API_URL = "abn.madoosi.com/V1/Auth/api.php"; // Change if hosted differently
+
+// Auto-login if cookie exists
+if (getCookie("username")) {
+    document.getElementById("auth").classList.add("hidden");
+    document.getElementById("webhook").classList.remove("hidden");
+}
+
+function auth(action) {
+    let user = document.getElementById("username").value.trim();
+    let pass = document.getElementById("password").value.trim();
+
+    if (!user || !pass) {
+        flyon.alert("Please fill in both fields.", "danger");
+        return;
     }
 
-    async function sendMessage() {
-      const url = document.getElementById('webhookUrl').value.trim();
-      const msg = document.getElementById('message').value.trim();
+    let formData = new FormData();
+    formData.append("action", action);
+    formData.append("username", user);
+    formData.append("password", pass);
 
-      if (!url) {
-        showAlert('error', '❌ Please enter a webhook URL.');
+    fetch(API_URL, { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(data => {
+            flyon.alert(data.message, data.status === "success" ? "success" : "danger");
+            if (data.status === "success" && action === "login") {
+                setCookie("username", user, 1);
+                location.reload();
+            }
+        })
+        .catch(err => flyon.alert("Error: " + err.message, "danger"));
+}
+
+function sendMessage() {
+    const url = document.getElementById('webhookUrl').value.trim();
+    const msg = document.getElementById('message').value.trim();
+    if (!url || !msg) {
+        flyon.alert("Webhook URL and message are required.", "danger");
         return;
-      }
-      if (!msg) {
-        showAlert('error', '❌ Please enter a message.');
-        return;
-      }
-
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: msg })
-        });
-
-        if (response.ok) {
-          showAlert('success', '✅ Message sent successfully!');
-        } else {
-          showAlert('error', `❌ Failed to send message. Status: ${response.status}`);
-        }
-      } catch (error) {
-        showAlert('error', `⚠️ Error: ${error.message}`);
-      }
     }
-  </script>
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg })
+    }).then(res => {
+        if (res.ok) flyon.alert("Message sent!", "success");
+        else flyon.alert("Failed to send message.", "danger");
+    }).catch(err => flyon.alert("Error: " + err.message, "danger"));
+}
+
+// Cookie helpers
+function setCookie(name, value, days) {
+    let expires = "";
+    if (days) {
+        let d = new Date();
+        d.setTime(d.getTime() + (days*24*60*60*1000));
+        expires = "; expires=" + d.toUTCString();
+    }
+    document.cookie = name + "=" + value + expires + "; path=/";
+}
+function getCookie(name) {
+    let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+}
+</script>
+
 </body>
 </html>
