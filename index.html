@@ -10,6 +10,17 @@
 
   <!-- FlyonUI CSS -->
   <link href="https://cdn.jsdelivr.net/npm/flyonui@1.0.0/dist/flyon.min.css" rel="stylesheet">
+
+  <style>
+    /* Alert animation for smooth appearance */
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
   <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
@@ -18,51 +29,58 @@
     <label class="block mb-4 text-left">
       <span class="text-gray-300">Webhook URL:</span>
       <input type="text" id="webhookUrl" placeholder="Enter webhook URL here"
-        class="input input-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white">
+        class="input input-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white rounded-lg">
     </label>
 
     <label class="block mb-6 text-left">
       <span class="text-gray-300">Message:</span>
       <textarea id="message" rows="4" placeholder="Enter your message"
-        class="textarea textarea-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white"></textarea>
+        class="textarea textarea-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white rounded-lg"></textarea>
     </label>
 
-    <button onclick="sendMessage()" class="btn btn-primary w-full">Send</button>
-    <p id="status" class="mt-4 text-sm text-gray-300"></p>
+    <button onclick="sendMessage()" class="btn btn-primary w-full rounded-lg">Send</button>
+
+    <!-- Alert container -->
+    <div id="alertBox" class="mt-4"></div>
   </div>
 
   <script>
+    function showAlert(type, message) {
+      const alertBox = document.getElementById('alertBox');
+      alertBox.innerHTML = `
+        <div class="alert alert-${type} fade-in shadow-lg mt-4">
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
     async function sendMessage() {
       const url = document.getElementById('webhookUrl').value.trim();
       const msg = document.getElementById('message').value.trim();
-      const status = document.getElementById('status');
-      status.textContent = '';
 
       if (!url) {
-        status.textContent = 'Please enter a webhook URL.';
+        showAlert('error', '❌ Please enter a webhook URL.');
         return;
       }
       if (!msg) {
-        status.textContent = 'Please enter a message.';
+        showAlert('error', '❌ Please enter a message.');
         return;
       }
 
       try {
         const response = await fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: msg })
         });
 
         if (response.ok) {
-          status.textContent = '✅ Message sent successfully!';
+          showAlert('success', '✅ Message sent successfully!');
         } else {
-          status.textContent = `❌ Failed to send message. Status: ${response.status}`;
+          showAlert('error', `❌ Failed to send message. Status: ${response.status}`);
         }
       } catch (error) {
-        status.textContent = `⚠️ Error: ${error.message}`;
+        showAlert('error', `⚠️ Error: ${error.message}`);
       }
     }
   </script>
