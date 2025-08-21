@@ -10,6 +10,22 @@
 
   <!-- FlyonUI CSS -->
   <link href="https://cdn.jsdelivr.net/npm/flyonui@1.0.0/dist/flyon.min.css" rel="stylesheet">
+  <style>
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px) translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+    }
+    @keyframes slideOut {
+      to { opacity: 0; transform: translateX(20px) translateY(10px) scale(0.97); }
+    }
+    @keyframes shrinkBar {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+    .alert-enter { animation: slideIn 0.3s ease-out forwards; }
+    .alert-exit { animation: slideOut 0.3s ease-in forwards; }
+    .bar { animation: shrinkBar linear forwards; transform-origin: left; }
+  </style>
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
   <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
@@ -32,6 +48,62 @@
   </div>
 
   <script>
+
+
+    
+  <script>
+  // Alert System - Single Function
+  (function(){
+    // Create alert container
+    const stack = document.createElement("div");
+    stack.id = "alert-stack";
+    stack.className = "fixed bottom-6 right-6 w-full max-w-sm flex flex-col gap-3 z-50 items-end";
+    document.body.appendChild(stack);
+
+    // Expose showAlert globally
+    window.showAlert = function(type, message, duration = 4000) {
+      const icons = {
+        success: `<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`,
+        error: `<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`,
+        warning: `<svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86L12 5 5.07 19z"/></svg>`
+      };
+
+      const colors = {
+        success: "border-green-500",
+        error: "border-red-500",
+        warning: "border-yellow-500"
+      };
+
+      const barColors = {
+        success: "bg-green-500",
+        error: "bg-red-500",
+        warning: "bg-yellow-500"
+      };
+
+      const alert = document.createElement("div");
+      alert.className = `alert-enter relative flex items-start gap-3 p-4 rounded-lg bg-gray-800 text-white shadow-lg border-l-4 ${colors[type]} w-full`;
+      alert.innerHTML = `
+        <div class="icon shrink-0">${icons[type]}</div>
+        <div class="flex-1">
+          <p class="font-semibold capitalize">${type}</p>
+          <p class="text-sm opacity-90">${message}</p>
+        </div>
+        <button class="ml-2 text-gray-400 hover:text-white" onclick="closeAlert(this.parentElement)">✕</button>
+        <div class="bar absolute bottom-0 left-0 h-1 ${barColors[type]}" style="animation-duration:${duration}ms"></div>
+      `;
+
+      stack.prepend(alert);
+      setTimeout(() => closeAlert(alert), duration);
+    }
+
+    // Helper to close alerts
+    window.closeAlert = function(alert) {
+      alert.classList.remove("alert-enter");
+      alert.classList.add("alert-exit");
+      alert.addEventListener("animationend", () => alert.remove());
+    }
+  })();
+
     async function sendMessage() {
       const url = document.getElementById('webhookUrl').value.trim();
       const msg = document.getElementById('message').value.trim();
