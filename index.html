@@ -50,93 +50,102 @@
   <script>
 
 
-    
-  <script>
-  // Alert System - Single Function
-  (function(){
-    // Create alert container
-    const stack = document.createElement("div");
-    stack.id = "alert-stack";
-    stack.className = "fixed bottom-6 right-6 w-full max-w-sm flex flex-col gap-3 z-50 items-end";
-    document.body.appendChild(stack);
+    <script>
+(function(){
+  // Create alert container (bottom-right)
+  const stack = document.createElement("div");
+  stack.id = "alert-stack";
+  stack.style.position = "fixed";
+  stack.style.bottom = "16px";
+  stack.style.right = "16px";
+  stack.style.display = "flex";
+  stack.style.flexDirection = "column";
+  stack.style.gap = "10px";
+  stack.style.maxWidth = "320px";
+  stack.style.zIndex = "9999";
+  document.body.appendChild(stack);
 
-    // Expose showAlert globally
-    window.showAlert = function(type, message, duration = 4000) {
-      const icons = {
-        success: `<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`,
-        error: `<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`,
-        warning: `<svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86L12 5 5.07 19z"/></svg>`
-      };
+  // Icons (SVG)
+  const icons = {
+    success: `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`,
+    error: `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`,
+    warning: `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86L12 5 5.07 19z"/></svg>`
+  };
 
-      const colors = {
-        success: "border-green-500",
-        error: "border-red-500",
-        warning: "border-yellow-500"
-      };
+  // Colors
+  const colors = {
+    success: { border: "#16a34a", bar: "#16a34a" },
+    error:   { border: "#dc2626", bar: "#dc2626" },
+    warning: { border: "#f59e0b", bar: "#f59e0b" }
+  };
 
-      const barColors = {
-        success: "bg-green-500",
-        error: "bg-red-500",
-        warning: "bg-yellow-500"
-      };
+  // Main function
+  window.showAlert = function(type, message, duration = 4000) {
+    const styleBox = `
+      background:#1f2937;color:white;
+      border-left:6px solid ${colors[type].border};
+      border-radius:8px;
+      box-shadow:0 4px 12px rgba(0,0,0,.3);
+      padding:12px 14px;
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      font-family:sans-serif;
+      animation:slideIn .3s ease-out;
+      position:relative;
+      overflow:hidden;
+    `;
 
-      const alert = document.createElement("div");
-      alert.className = `alert-enter relative flex items-start gap-3 p-4 rounded-lg bg-gray-800 text-white shadow-lg border-l-4 ${colors[type]} w-full`;
-      alert.innerHTML = `
-        <div class="icon shrink-0">${icons[type]}</div>
-        <div class="flex-1">
-          <p class="font-semibold capitalize">${type}</p>
-          <p class="text-sm opacity-90">${message}</p>
-        </div>
-        <button class="ml-2 text-gray-400 hover:text-white" onclick="closeAlert(this.parentElement)">✕</button>
-        <div class="bar absolute bottom-0 left-0 h-1 ${barColors[type]}" style="animation-duration:${duration}ms"></div>
-      `;
+    const styleBar = `
+      position:absolute;
+      bottom:0;left:0;height:3px;width:100%;
+      background:${colors[type].bar};
+      transform-origin:left;
+      animation:shrink ${duration}ms linear forwards;
+    `;
 
-      stack.prepend(alert);
-      setTimeout(() => closeAlert(alert), duration);
+    const alert = document.createElement("div");
+    alert.setAttribute("style", styleBox);
+    alert.innerHTML = `
+      <div style="color:${colors[type].border};flex-shrink:0">${icons[type]}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;text-transform:capitalize">${type}</div>
+        <div style="font-size:14px;opacity:.9">${message}</div>
+      </div>
+      <button style="background:none;border:0;color:#aaa;font-size:16px;cursor:pointer">✕</button>
+      <div style="${styleBar}"></div>
+    `;
+
+    // Close button
+    alert.querySelector("button").onclick = () => closeAlert(alert);
+
+    stack.prepend(alert);
+    setTimeout(() => closeAlert(alert), duration);
+  };
+
+  function closeAlert(alert){
+    alert.style.animation = "slideOut .3s ease-in forwards";
+    alert.addEventListener("animationend", () => alert.remove());
+  }
+
+  // Animations
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes slideIn {
+      from{opacity:0;transform:translateX(20px) translateY(20px) scale(.95);}
+      to{opacity:1;transform:translateX(0) translateY(0) scale(1);}
     }
-
-    // Helper to close alerts
-    window.closeAlert = function(alert) {
-      alert.classList.remove("alert-enter");
-      alert.classList.add("alert-exit");
-      alert.addEventListener("animationend", () => alert.remove());
+    @keyframes slideOut {
+      to{opacity:0;transform:translateX(20px) translateY(10px) scale(.97);}
     }
-  })();
-
-    async function sendMessage() {
-      const url = document.getElementById('webhookUrl').value.trim();
-      const msg = document.getElementById('message').value.trim();
-      const status = document.getElementById('status');
-      status.textContent = '';
-
-      if (!url) {
-        status.textContent = 'Please enter a webhook URL.';
-        return;
-      }
-      if (!msg) {
-        status.textContent = 'Please enter a message.';
-        return;
-      }
-
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ text: msg })
-        });
-
-        if (response.ok) {
-          status.textContent = '✅ Message sent successfully!';
-        } else {
-          status.textContent = `❌ Failed to send message. Status: ${response.status}`;
-        }
-      } catch (error) {
-        status.textContent = `⚠️ Error: ${error.message}`;
-      }
+    @keyframes shrink {
+      from{transform:scaleX(1);}
+      to{transform:scaleX(0);}
     }
-  </script>
+  `;
+  document.head.appendChild(style);
+})();
+</script>
+
 </body>
 </html>
