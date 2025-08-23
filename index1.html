@@ -1,1 +1,110 @@
-Land Redirect page
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Spaces Webhook Manager</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to {opacity:1; transform:translateY(0);} }
+  .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+</style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-6">
+
+<h1 class="text-2xl font-bold text-red-500 mb-6">Chat Spaces Webhook Manager</h1>
+
+<!-- Form -->
+<div class="w-full max-w-md bg-gray-800 p-6 rounded shadow-lg mb-6">
+  <form id="webhookForm" class="space-y-4">
+    <div>
+      <label class="block mb-1 font-semibold">Name</label>
+      <input type="text" id="name" class="w-full px-3 py-2 rounded bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Your name" required>
+    </div>
+    <div>
+      <label class="block mb-1 font-semibold">Webhook URL</label>
+      <input type="url" id="webhook" class="w-full px-3 py-2 rounded bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Webhook URL" required>
+    </div>
+    <div>
+      <label class="block mb-1 font-semibold">Default Message</label>
+      <textarea id="message" rows="3" class="w-full px-3 py-2 rounded bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Message to send"></textarea>
+    </div>
+    <button type="submit" class="w-full py-2 px-4 bg-red-500 hover:bg-red-600 rounded text-white font-bold transition-all duration-200">Save Webhook</button>
+  </form>
+</div>
+
+<!-- Saved webhooks list -->
+<div class="w-full max-w-md bg-gray-800 p-4 rounded shadow-lg">
+  <h2 class="text-lg font-bold text-red-500 mb-4">Saved Webhooks</h2>
+  <ul id="webhookList" class="space-y-2"></ul>
+</div>
+
+<!-- Alert container -->
+<div id="alert-container" class="fixed bottom-4 right-4 flex flex-col space-y-3 z-50"></div>
+
+<script>
+// Alert system
+function showAlert(type, message) {
+  const container = document.getElementById("alert-container");
+  let icon="", color="";
+  if(type==="success"){color="bg-green-100 border-green-500 text-green-700"; icon='<svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8.414 8.414a1 1 0 01-1.414 0L3.293 11.12a1 1 0 011.414-1.414l3.172 3.172 7.707-7.707a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>'}
+  else if(type==="error"){color="bg-red-100 border-red-500 text-red-700"; icon='<svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-5h2v2h-2v-2zm0-6h2v4h-2V7z" clip-rule="evenodd"/></svg>'}
+  const alert=document.createElement("div");
+  alert.className=`flex items-center p-3 border-l-4 rounded shadow ${color} animate-fade-in`;
+  alert.innerHTML=`<div class="mr-2">${icon}</div><div class="flex-1">${message}</div><button onclick="this.parentElement.remove()" class="ml-3 text-xl font-bold leading-none focus:outline-none">&times;</button>`;
+  container.appendChild(alert);
+  setTimeout(()=>{if(alert.parentElement) alert.remove()},4000);
+}
+
+// Cookie helpers
+function setCookie(name,value,days){const d=new Date();d.setTime(d.getTime()+(days*24*60*60*1000));document.cookie=name+"="+encodeURIComponent(value)+";path=/;expires="+d.toUTCString();}
+function getCookie(name){const v=document.cookie.match('(^|;) ?'+name+'=([^;]*)(;|$)'); return v?decodeURIComponent(v[2]):null;}
+
+// Load saved webhooks from cookie
+function loadWebhooks(){
+  const list = document.getElementById("webhookList");
+  list.innerHTML="";
+  const saved = getCookie("chatWebhooks");
+  if(saved){
+    const webhooks = JSON.parse(saved);
+    webhooks.forEach((wh,index)=>{
+      const li=document.createElement("li");
+      li.className="p-2 bg-gray-700 rounded flex justify-between items-center";
+      li.innerHTML=`<span>${wh.name}: ${wh.webhook}</span>
+                    <button onclick="removeWebhook(${index})" class="bg-red-500 px-2 py-1 rounded text-sm">Delete</button>`;
+      list.appendChild(li);
+    });
+  }
+}
+
+// Remove webhook
+function removeWebhook(index){
+  let webhooks = getCookie("chatWebhooks")?JSON.parse(getCookie("chatWebhooks")):[];
+  webhooks.splice(index,1);
+  setCookie("chatWebhooks",JSON.stringify(webhooks),365);
+  loadWebhooks();
+  showAlert("success","Webhook deleted.");
+}
+
+// Handle form submit
+document.getElementById("webhookForm").addEventListener("submit",function(e){
+  e.preventDefault();
+  const name=document.getElementById("name").value.trim();
+  const webhook=document.getElementById("webhook").value.trim();
+  const message=document.getElementById("message").value.trim();
+  if(!name||!webhook){showAlert("error","Name and Webhook are required!");return;}
+  
+  let webhooks = getCookie("chatWebhooks")?JSON.parse(getCookie("chatWebhooks")):[];
+  webhooks.push({name,webhook,message});
+  setCookie("chatWebhooks",JSON.stringify(webhooks),365);
+  loadWebhooks();
+  showAlert("success","Webhook saved!");
+  this.reset();
+});
+
+// Initial load
+loadWebhooks();
+</script>
+
+</body>
+</html>
