@@ -29,8 +29,8 @@
 
 <!-- Navbar -->
 <div class="flex bg-gray-800 p-3 shadow-lg">
-  <button class="px-4 py-2 font-bold text-red-500 border-b-2 border-red-500" onclick="switchTab('manage')">Manage Webhooks</button>
-  <button class="px-4 py-2 ml-2 font-bold text-gray-300 hover:text-red-500" onclick="switchTab('send')">Send Messages</button>
+  <button id="btnManage" class="px-4 py-2 font-bold text-red-500 border-b-2 border-red-500">Manage Webhooks</button>
+  <button id="btnSend" class="px-4 py-2 ml-2 font-bold text-gray-300 hover:text-red-500">Send Messages</button>
 </div>
 
 <div class="flex-1 p-6">
@@ -77,7 +77,7 @@
       <h2 class="font-semibold text-gray-200 mb-1 mt-2">Live Preview:</h2>
       <div id="preview" class="w-full min-h-[100px] p-3 rounded bg-gray-900 border border-gray-600 text-gray-100 mb-4"></div>
 
-      <button onclick="scheduleMessage()" class="w-full py-2 px-4 bg-red-500 hover:bg-red-600 rounded text-white font-bold transition-all duration-200">Send / Schedule</button>
+      <button id="sendBtn" class="w-full py-2 px-4 bg-red-500 hover:bg-red-600 rounded text-white font-bold transition-all duration-200">Send / Schedule</button>
     </div>
 
     <div class="w-full max-w-md bg-gray-800 p-4 rounded shadow-lg">
@@ -173,15 +173,19 @@ var quill = new Quill('#editor', {
 function updatePreview(){document.getElementById("preview").innerHTML=quill.root.innerHTML;}
 quill.on('text-change', updatePreview);
 
-// Tab switch
+// Tab switching using addEventListener
+document.getElementById("btnManage").addEventListener("click", ()=>switchTab('manage'));
+document.getElementById("btnSend").addEventListener("click", ()=>switchTab('send'));
+
 function switchTab(tab){
   document.querySelectorAll(".tab").forEach(t=>t.classList.add("hidden"));
   document.getElementById(tab).classList.remove("hidden");
+  // Update navbar button styles
   document.querySelectorAll(".flex > button").forEach(btn=>{
     btn.classList.remove("border-b-2","text-red-500");
     btn.classList.add("text-gray-300");
   });
-  event.target.classList.add("border-b-2","border-red-500","text-red-500");
+  document.getElementById(tab==='manage'?'btnManage':'btnSend').classList.add("border-b-2","border-red-500","text-red-500");
 }
 
 // Schedule system
@@ -203,6 +207,8 @@ function scheduleMessage(){
   quill.setContents([]);
   updatePreview();
 }
+
+document.getElementById("sendBtn").addEventListener("click", scheduleMessage);
 
 // Update scheduled list
 function updateScheduledList(){
@@ -227,14 +233,30 @@ function removeScheduled(index){
   updateScheduledList();
 }
 
-// Send due messages
+// Send due messages (mock fetch)
 async function sendScheduledMessages(){
   let scheduled=JSON.parse(localStorage.getItem("scheduledMessages")||"[]");
   const now=Date.now();
   const toSend=scheduled.filter(s=>s.time<=now);
   for(const s of toSend){
-    try{ await fetch(s.webhook,{method:"POST",headers:{"Content-Type":"application/json"}, body:JSON.stringify({content:s.content})}); } 
-    catch(err){ console.error(err);}
+    try{ 
+      await fetch(s.webhook,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"}, 
+        body:JSON.stringify({content:s.content})
+      });
+    } catch(err){ console.error(err);}
   }
   scheduled=scheduled.filter(s=>s.time>now);
-  localStorage.setItem("scheduledMessages",
+  localStorage.setItem("scheduledMessages",JSON.stringify(scheduled));
+  updateScheduledList();
+}
+
+// Initialize
+loadWebhooks();
+updateScheduledList();
+setInterval(sendScheduledMessages,60000);
+updatePreview();
+</script>
+</body>
+</html>
