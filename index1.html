@@ -1,408 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Chat Webhook</title>
+  <meta charset="UTF-8">
+  <title>Chat Webhook</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/preline/dist/preline.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
 
-<!-- Tailwind (CDN) -->
-<script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #111827; color: #f3f4f6; }
+    .ql-toolbar, .ql-container { background: #1f2937; color: white; border: none !important; }
+    .ql-editor { min-height: 150px; color: white; }
 
-<!-- Quill -->
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    /* Tabs now instant switch */
+    .tab { display: none; }
+    .tab.active { display: block; }
 
-<style>
-  :root { --bg: #0f1724; --card: #0b1220; --muted: #9ca3af; --accent: #ef4444; }
-  body { background: var(--bg); color: #e6eef8; font-family: Inter, system-ui, sans-serif; }
+    /* Splash tracing text effect */
+    .splash-text {
+      font-size: 3rem;
+      font-weight: bold;
+      fill: none;
+      stroke: white;
+      stroke-width: 2px;
+      stroke-dasharray: 1000;
+      stroke-dashoffset: 1000;
+      animation: draw 4s linear forwards; /* slower */
+    }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
 
-  /* splash card (non-fullscreen centered box) */
-  #splash { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; z-index:60; pointer-events:none; }
-  .splash-card { background: #0b1220cc; border: 1px solid rgba(255,255,255,0.04); padding: 28px 36px; border-radius:12px; pointer-events:auto; box-shadow: 0 8px 30px rgba(2,6,23,0.6); }
+    /* Fade-out splash */
+    @keyframes fadeOut { from{opacity:1;} to{opacity:0;} }
+    .fade-out { animation: fadeOut 1s ease forwards; }
 
-  /* draw animation for whole text simultaneously */
-  .splash-text {
-    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    font-weight: 700;
-    font-size: 44px;
-    fill: none;                 /* no fill, stroke only */
-    stroke: #ffffff;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 1200;     /* large enough to cover full path */
-    stroke-dashoffset: 1200;    /* start hidden */
-    animation: drawAll 1.6s linear forwards;
-  }
-  @keyframes drawAll {
-    to { stroke-dashoffset: 0; }
-  }
-
-  /* fade out */
-  .fade-out { animation: fadeOut 0.9s ease forwards; }
-  @keyframes fadeOut { from { opacity: 1; transform: translateY(0);} to { opacity:0; transform: translateY(-8px);} }
-
-  /* tabs transitions */
-  .tab { transition: opacity .28s ease, transform .28s ease; opacity:0; transform: translateY(10px); display:none; }
-  .tab.active { opacity:1; transform: translateY(0); display:block; }
-
-  /* quill dark */
-  .ql-toolbar, .ql-container { background: #0b1220 !important; color: #e6eef8 !important; border: 1px solid rgba(255,255,255,0.05) !important; }
-  .ql-editor { min-height: 160px; color: #e6eef8; }
-
-  /* alert animation */
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to {opacity:1; transform: translateY(0);} }
-  .animate-fade-in { animation: fadeIn 0.28s ease-out; }
-
-  /* drag visual */
-  .dragging { opacity: 0.45; transform: scale(.995); }
-</style>
+    /* Alert fade-in */
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+    .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+  </style>
 </head>
-<body>
+<body class="font-sans">
 
-<!-- Splash (non-fullscreen centered card) -->
-<div id="splash">
-  <div class="splash-card">
-    <!-- Single text element: whole phrase drawn together -->
-    <svg viewBox="0 0 520 72" width="520" height="72" aria-hidden="true">
-      <text x="10" y="52" class="splash-text">Chat Webhook</text>
+  <!-- Splash Screen Fullscreen -->
+  <div id="splash" class="fixed inset-0 flex items-center justify-center z-50 bg-gray-900">
+    <svg viewBox="0 0 600 120" class="w-[500px] h-[120px]">
+      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="splash-text">Chat Webhook</text>
     </svg>
   </div>
-</div>
 
-<!-- Top navbar -->
-<header class="flex items-center gap-4 bg-gray-900/60 backdrop-blur p-3 border-b border-white/5">
-  <nav class="flex gap-2">
-    <button id="btnManage" class="px-3 py-1 font-semibold text-accent border-b-2 border-accent">Manage</button>
-    <button id="btnSend" class="px-3 py-1 font-semibold text-gray-300">Send</button>
+  <!-- Alerts -->
+  <div id="alert-container" class="fixed bottom-4 right-4 flex flex-col space-y-3 z-50"></div>
+
+  <!-- Navbar -->
+  <nav class="bg-gray-800 p-4 flex space-x-4">
+    <button onclick="switchTab('manage')" class="text-white">Manage Webhooks</button>
+    <button onclick="switchTab('editor')" class="text-white">Editor</button>
+    <button onclick="switchTab('schedule')" class="text-white">Schedule</button>
   </nav>
-  <div class="ml-auto text-sm text-gray-400">Chat Webhook • Demo</div>
-</header>
 
-<main class="p-6 max-w-3xl mx-auto">
-  <!-- Manage tab -->
-  <section id="manage" class="tab active">
-    <h2 class="text-2xl font-semibold text-white mb-4">Manage Webhooks</h2>
+  <!-- Tabs -->
+  <div id="manage" class="tab active p-6">Webhook Manager</div>
+  <div id="editor" class="tab p-6">Editor</div>
+  <div id="schedule" class="tab p-6">Schedule</div>
 
-    <form id="webhookForm" class="grid grid-cols-1 gap-3 mb-4">
-      <input id="webhookUrl" type="url" placeholder="Webhook URL (https://...)" class="px-3 py-2 rounded bg-gray-800 border border-white/5 text-white" />
-      <div class="flex gap-2">
-        <button type="submit" class="bg-accent px-4 py-2 rounded text-white font-semibold">Save Webhook</button>
-        <button id="importExample" type="button" class="bg-gray-700 px-3 py-2 rounded text-gray-200">Add Example</button>
-      </div>
-    </form>
-
-    <div>
-      <h3 class="text-lg font-medium mb-2 text-white">Saved Webhooks</h3>
-      <ul id="webhookList" class="space-y-2"></ul>
-    </div>
-  </section>
-
-  <!-- Send tab -->
-  <section id="send" class="tab p-0">
-    <h2 class="text-2xl font-semibold text-white mb-4">Send / Schedule Messages</h2>
-
-    <label class="block mb-2 text-sm text-gray-300">Choose Webhook</label>
-    <select id="webhookSelect" class="w-full mb-3 px-3 py-2 rounded bg-gray-800 text-white border border-white/5"></select>
-
-    <div id="editorContainer" class="bg-gray-900/60 border border-white/5 rounded mb-3">
-      <div id="editor" class="p-2"></div>
-    </div>
-
-    <div class="flex gap-2 mb-3">
-      <input id="scheduleTime" type="number" min="0" placeholder="Delay (minutes) - 0 immediate" class="px-3 py-2 rounded bg-gray-800 border border-white/5 text-white" />
-      <button id="sendBtn" class="bg-accent px-4 py-2 rounded text-white font-semibold">Send / Schedule</button>
-    </div>
-
-    <h3 class="text-lg font-medium text-white mb-2">Scheduled Messages (drag to reorder)</h3>
-    <ul id="scheduledList" class="space-y-2"></ul>
-  </section>
-</main>
-
-<!-- Alert container -->
-<div id="alert-container" class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50"></div>
-
-<script>
-/* -------------------------
-   Utilities & Alerts
-   ------------------------- */
-function showAlert(type, message) {
-  const container = document.getElementById('alert-container');
-  let colorClass = 'bg-yellow-100 border-yellow-500 text-yellow-700';
-  let icon = '⚠️';
-  if (type === 'success') { colorClass = 'bg-green-100 border-green-500 text-green-700'; icon = '✅'; }
-  if (type === 'error')   { colorClass = 'bg-red-100 border-red-500 text-red-700'; icon = '❌'; }
-  if (type === 'warning') { colorClass = 'bg-yellow-100 border-yellow-500 text-yellow-700'; icon = '⚠️'; }
-
-  const el = document.createElement('div');
-  el.className = `flex items-center p-3 border-l-4 rounded shadow ${colorClass} animate-fade-in`;
-  el.innerHTML = `<div class="mr-3">${icon}</div><div class="flex-1">${message}</div><button class="ml-3 text-lg" onclick="this.parentElement.remove()">×</button>`;
-  container.appendChild(el);
-  setTimeout(()=>{ if (el.parentElement) el.remove(); }, 4500);
-}
-
-/* -------------------------
-   Storage helpers
-   ------------------------- */
-const STORAGE_WEBHOOKS = 'cw_webhooks';
-const STORAGE_SCHEDULE = 'cw_scheduled';
-
-function getWebhooks() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_WEBHOOKS) || '[]'); } catch(e){ return []; }
-}
-function setWebhooks(list) { localStorage.setItem(STORAGE_WEBHOOKS, JSON.stringify(list)); }
-
-function getScheduled() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_SCHEDULE) || '[]'); } catch(e){ return []; }
-}
-function setScheduled(arr) { localStorage.setItem(STORAGE_SCHEDULE, JSON.stringify(arr)); }
-
-/* -------------------------
-   Render / Webhook management
-   ------------------------- */
-function renderWebhooks() {
-  const listEl = document.getElementById('webhookList');
-  const select = document.getElementById('webhookSelect');
-  listEl.innerHTML = '';
-  select.innerHTML = '<option value="">-- choose webhook --</option>';
-  const items = getWebhooks();
-  items.forEach((url, i) => {
-    // list item
-    const li = document.createElement('li');
-    li.className = 'flex justify-between items-center p-2 bg-gray-800 border border-white/5 rounded';
-    li.innerHTML = `<div class="text-sm break-all">${escapeHtml(url)}</div>
-      <div class="flex gap-2">
-        <button onclick="copyWebhook(${i})" class="px-2 py-1 text-sm rounded bg-gray-700">Copy</button>
-        <button onclick="removeWebhook(${i})" class="px-2 py-1 text-sm rounded bg-red-600 text-white">Remove</button>
-      </div>`;
-    listEl.appendChild(li);
-
-    // select option
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.text = `Webhook ${i+1}`;
-    select.appendChild(opt);
-  });
-}
-
-function addWebhook(url) {
-  if (!url) { showAlert('error','Webhook URL required'); return; }
-  const items = getWebhooks();
-  items.push(url);
-  setWebhooks(items);
-  renderWebhooks();
-  showAlert('success','Webhook saved');
-}
-function removeWebhook(i) {
-  const items = getWebhooks();
-  items.splice(i,1);
-  setWebhooks(items);
-  renderWebhooks();
-  showAlert('success','Webhook removed');
-}
-function copyWebhook(i){
-  const items = getWebhooks();
-  navigator.clipboard?.writeText(items[i] || '').then(()=> showAlert('success','Copied'));
-}
-
-/* -------------------------
-   Quill editor + preview
-   ------------------------- */
-const quill = new Quill('#editor', {
-  theme: 'snow',
-  modules: { toolbar: [['bold','italic','underline'], ['link','image'], [{ 'list': 'ordered' }, { 'list': 'bullet' }], [{ 'color': [] }, { 'align': [] }]] }
-});
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
-
-/* -------------------------
-   Scheduled messages list + drag reorder
-   ------------------------- */
-function renderScheduled() {
-  const list = document.getElementById('scheduledList');
-  list.innerHTML = '';
-  const arr = getScheduled();
-  arr.forEach((job, idx) => {
-    const li = document.createElement('li');
-    li.draggable = true;
-    li.dataset.index = idx;
-    li.className = 'flex justify-between items-start gap-3 p-3 bg-gray-800 border border-white/5 rounded cursor-move';
-    // content preview (short)
-    const left = document.createElement('div');
-    left.innerHTML = `<div class="text-xs text-gray-400 mb-1">${new Date(job.time).toLocaleString()}</div><div class="text-sm break-words">${job.contentSnippet || '[HTML content]'}</div>`;
-    const controls = document.createElement('div');
-    controls.className = 'flex flex-col gap-2';
-    controls.innerHTML = `<button class="px-2 py-1 bg-red-600 rounded text-sm text-white" onclick="removeScheduled(${idx})">Cancel</button>`;
-    li.appendChild(left);
-    li.appendChild(controls);
-    // drag handlers
-    addDragHandlers(li);
-    list.appendChild(li);
-  });
-}
-
-/* drag logic: simple reorder using DOM positions then persist */
-function addDragHandlers(li) {
-  const list = document.getElementById('scheduledList');
-  li.addEventListener('dragstart', (e) => {
-    li.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', li.dataset.index);
-  });
-  li.addEventListener('dragend', () => { li.classList.remove('dragging'); });
-
-  li.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    const dragging = list.querySelector('.dragging');
-    if (!dragging || dragging === li) return;
-    const children = Array.from(list.children);
-    const overIndex = children.indexOf(li);
-    const dragIndex = children.indexOf(dragging);
-    if (dragIndex < overIndex) {
-      li.after(dragging);
-    } else {
-      li.before(dragging);
+  <script>
+    // Alert System
+    function showAlert(type, message) {
+      const container = document.getElementById("alert-container");
+      let color="", icon="";
+      if (type==="warning") {
+        color="bg-yellow-100 border-yellow-500 text-yellow-700";
+        icon=`<svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.516 11.59c.75 1.335-.213 3.01-1.742 3.01H3.483c-1.53 0-2.492-1.675-1.742-3.01L8.257 3.1zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-2a1 1 0 01-1-1V7a1 1 0 112 0v3a1 1 0 01-1 1z" clip-rule="evenodd"/></svg>`;
+      }
+      const alert=document.createElement("div");
+      alert.className=`flex items-center p-3 border-l-4 rounded shadow ${color} animate-fade-in`;
+      alert.innerHTML=`<div class="mr-2">${icon}</div><div>${message}</div>`;
+      container.appendChild(alert);
+      setTimeout(()=>{alert.remove()},4000);
     }
-  });
 
-  li.addEventListener('drop', () => {
-    // rebuild scheduled array from DOM order
-    const domItems = Array.from(document.getElementById('scheduledList').children);
-    const old = getScheduled();
-    const newOrder = domItems.map(dom => old[parseInt(dom.dataset.index)]);
-    // normalize (remove undefined if any) and persist
-    const normalized = newOrder.filter(Boolean);
-    setScheduled(normalized);
-    renderScheduled(); // re-render to refresh indexes and handlers
-  });
-}
+    // Tab switching (instant, no slide)
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+    }
 
-function removeScheduled(i) {
-  const arr = getScheduled();
-  arr.splice(i,1);
-  setScheduled(arr);
-  renderScheduled();
-  showAlert('success','Scheduled removed');
-}
-
-/* -------------------------
-   Sending / scheduling logic
-   ------------------------- */
-async function sendNowToWebhook(url, html) {
-  // Attempt POST JSON { content: html } - adjust according to your webhook target
-  try {
-    const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ content: html }) });
-    return res.ok;
-  } catch(e) {
-    console.error(e);
-    return false;
-  }
-}
-
-async function sendOrSchedule() {
-  const select = document.getElementById('webhookSelect');
-  const idx = select.value;
-  const html = quill.root.innerHTML.trim();
-  if (!html) { showAlert('error','Message empty'); return; }
-  if (idx === '') { showAlert('error','Select a webhook'); return; }
-  const hooks = getWebhooks();
-  const webhookUrl = hooks[idx];
-  if (!webhookUrl) { showAlert('error','Invalid webhook'); return; }
-
-  const minutes = Math.max(0, Math.floor(Number(document.getElementById('scheduleTime').value) || 0));
-  if (minutes === 0) {
-    const ok = await sendNowToWebhook(webhookUrl, html);
-    showAlert(ok ? 'success' : 'error', ok ? 'Message sent' : 'Failed to send');
-  } else {
-    const scheduled = getScheduled();
-    scheduled.push({ webhook: webhookUrl, content: html, time: Date.now() + minutes * 60000, contentSnippet: stripTags(html, 120) });
-    setScheduled(scheduled);
-    renderScheduled();
-    showAlert('success','Message scheduled');
-  }
-  quill.setContents([]); document.getElementById('scheduleTime').value = '';
-}
-
-function stripTags(html, maxLen=120) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  const txt = tmp.textContent || tmp.innerText || '';
-  if (txt.length > maxLen) return txt.slice(0,maxLen) + '…';
-  return txt;
-}
-
-/* Send due messages (runs periodically) */
-async function sendDueMessages() {
-  let arr = getScheduled();
-  const now = Date.now();
-  const due = arr.filter(j => j.time <= now);
-  if (due.length === 0) return;
-  for (const job of due) {
-    await sendNowToWebhook(job.webhook, job.content).catch(()=>{});
-  }
-  // keep remaining
-  arr = arr.filter(j => j.time > now);
-  setScheduled(arr);
-  renderScheduled();
-}
-
-/* -------------------------
-   Initialization & event binding
-   ------------------------- */
-document.addEventListener('DOMContentLoaded', () => {
-  // wire navbar buttons (no inline handlers)
-  document.getElementById('btnManage').addEventListener('click', () => switchTab('manage'));
-  document.getElementById('btnSend').addEventListener('click', () => switchTab('send'));
-
-  // form handlers
-  document.getElementById('webhookForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const url = document.getElementById('webhookUrl').value.trim();
-    if (!url) { showAlert('error','Webhook required'); return; }
-    addWebhook(url);
-    document.getElementById('webhookUrl').value = '';
-  });
-
-  document.getElementById('importExample').addEventListener('click', () => {
-    addWebhook('https://example.com/webhook-demo');
-  });
-
-  document.getElementById('sendBtn').addEventListener('click', sendOrSchedule);
-
-  // initial render
-  renderWebhooks();
-  renderScheduled();
-
-  // scheduled messages check every 30s
-  setInterval(sendDueMessages, 30000);
-
-  // Splash behavior: remove after draw then hide
-  const splash = document.getElementById('splash');
-  // after the draw animation finishes (1.6s), keep visible briefly, then fade
-  setTimeout(() => {
-    // show warning alert about auth disabled (on load)
-    showAlert('warning', 'Auth system disabled (demo mode)');
-    // fade splash
-    splash.classList.add('fade-out');
-    setTimeout(()=> { if (splash.parentElement) splash.remove(); }, 900);
-  }, 1800);
-});
-
-/* tab switching (with transition) */
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => {
-    t.classList.remove('active');
-    setTimeout(()=> t.style.display = 'none', 260);
-  });
-  const el = document.getElementById(tab);
-  el.style.display = 'block';
-  setTimeout(()=> el.classList.add('active'), 10);
-  // navbar style
-  document.getElementById('btnManage').classList.remove('text-accent'); // just reset any custom
-  document.getElementById('btnSend').classList.remove('text-accent');
-  document.querySelectorAll('header nav button').forEach(b => { b.classList.remove('text-red-500','border-b-2','border-accent'); b.classList.add('text-gray-300'); });
-  const btn = (tab === 'manage') ? document.getElementById('btnManage') : document.getElementById('btnSend');
-  btn.classList.add('text-red-500','border-b-2','border-accent');
-}
-</script>
+    // Splash logic
+    window.addEventListener("load", ()=>{
+      showAlert("warning","Auth system disabled");
+      const splash=document.getElementById("splash");
+      setTimeout(()=>{
+        splash.classList.add("fade-out");
+        setTimeout(()=> splash.remove(), 1000);
+      }, 4200); // wait until trace finished + buffer
+    });
+  </script>
 </body>
 </html>
