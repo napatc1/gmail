@@ -7,45 +7,47 @@
   <link href="https://cdn.jsdelivr.net/npm/preline/dist/preline.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
-
   <style>
-    body { background-color: #111827; color: #f3f4f6; }
-    .ql-toolbar, .ql-container { background: #1f2937; color: white; border: none !important; }
-    .ql-editor { min-height: 150px; color: white; }
+    body { background:#111827; color:#f3f4f6; margin:0; font-family:sans-serif; }
+    .ql-toolbar, .ql-container { background:#1f2937; border:none!important; }
+    .ql-editor { min-height:150px; color:white; }
+    .tab { display:none; }
+    .tab.active { display:block; }
 
-    /* Tabs now instant switch */
-    .tab { display: none; }
-    .tab.active { display: block; }
-
-    /* Splash tracing text effect */
-    .splash-text {
-      font-size: 3rem;
-      font-weight: bold;
-      fill: none;
-      stroke: white;
-      stroke-width: 2px;
-      stroke-dasharray: 1000;
-      stroke-dashoffset: 1000;
-      animation: draw 4s linear forwards; /* slower */
+    /* Splash full screen */
+    #splash {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:#111827; z-index:50; display:flex; flex-direction:column; justify-center; align-items:center;
     }
-    @keyframes draw { to { stroke-dashoffset: 0; } }
+    #splash h1 { font-size:2rem; margin-bottom:1rem; color:white; }
+    .loading-bar {
+      position:absolute; top:0; left:0; height:4px; width:100%;
+      background:transparent; overflow:hidden;
+    }
+    .loading-bar::before {
+      content:""; position:absolute; left:-40%; top:0;
+      height:100%; width:40%; background:#ef4444;
+      animation: slide 1s infinite ease-in-out;
+    }
+    @keyframes slide {
+      0%   { left:-40%; width:30%; }
+      50%  { left:50%; width:40%; }
+      100% { left:100%; width:30%; }
+    }
 
-    /* Fade-out splash */
     @keyframes fadeOut { from{opacity:1;} to{opacity:0;} }
-    .fade-out { animation: fadeOut 1s ease forwards; }
+    .fade-out { animation:fadeOut 1s ease forwards; }
 
-    /* Alert fade-in */
-    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
-    .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+    .animate-fade-in { animation:fadeIn 0.3s ease-out; }
   </style>
 </head>
-<body class="font-sans">
+<body>
 
-  <!-- Splash Screen Fullscreen -->
-  <div id="splash" class="fixed inset-0 flex items-center justify-center z-50 bg-gray-900">
-    <svg viewBox="0 0 600 120" class="w-[500px] h-[120px]">
-      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" class="splash-text">Chat Webhook</text>
-    </svg>
+  <!-- Splash screen -->
+  <div id="splash">
+    <h1>Loading...</h1>
+    <div class="loading-bar"></div>
   </div>
 
   <!-- Alerts -->
@@ -55,44 +57,119 @@
   <nav class="bg-gray-800 p-4 flex space-x-4">
     <button onclick="switchTab('manage')" class="text-white">Manage Webhooks</button>
     <button onclick="switchTab('editor')" class="text-white">Editor</button>
-    <button onclick="switchTab('schedule')" class="text-white">Schedule</button>
+    <button onclick="switchTab('send')" class="text-white">Send</button>
   </nav>
 
-  <!-- Tabs -->
-  <div id="manage" class="tab active p-6">Webhook Manager</div>
-  <div id="editor" class="tab p-6">Editor</div>
-  <div id="schedule" class="tab p-6">Schedule</div>
+  <!-- Manage -->
+  <div id="manage" class="tab active p-6">
+    <h2 class="text-xl mb-2">Webhook Manager</h2>
+    <form onsubmit="event.preventDefault(); saveWebhook();" class="flex flex-wrap gap-2">
+      <input id="webhookName" placeholder="Name" class="p-2 rounded bg-gray-700 text-white">
+      <input id="webhookUrl" placeholder="Webhook URL" class="p-2 rounded bg-gray-700 text-white w-96">
+      <button type="submit" class="bg-blue-600 text-white px-3 py-2 rounded">Save</button>
+    </form>
+    <ul id="webhookList" class="mt-4 space-y-2"></ul>
+  </div>
+
+  <!-- Editor -->
+  <div id="editor" class="tab p-6">
+    <h2 class="text-xl mb-2">Message Editor</h2>
+    <div id="editorBox" class="bg-gray-800"></div>
+  </div>
+
+  <!-- Send -->
+  <div id="send" class="tab p-6">
+    <h2 class="text-xl mb-2">Send Message</h2>
+    <form onsubmit="event.preventDefault(); sendMessage();" class="flex gap-2">
+      <select id="selectWebhook" class="p-2 rounded bg-gray-700 text-white"></select>
+      <button type="submit" class="ml-2 bg-green-600 text-white px-3 py-2 rounded">Send</button>
+    </form>
+  </div>
 
   <script>
-    // Alert System
-    function showAlert(type, message) {
-      const container = document.getElementById("alert-container");
-      let color="", icon="";
-      if (type==="warning") {
-        color="bg-yellow-100 border-yellow-500 text-yellow-700";
-        icon=`<svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.516 11.59c.75 1.335-.213 3.01-1.742 3.01H3.483c-1.53 0-2.492-1.675-1.742-3.01L8.257 3.1zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-2a1 1 0 01-1-1V7a1 1 0 112 0v3a1 1 0 01-1 1z" clip-rule="evenodd"/></svg>`;
-      }
+    // Alerts
+    function showAlert(type,message){
+      const c=document.getElementById("alert-container");
+      let color="",icon="";
+      if(type==="success"){color="bg-green-100 border-green-500 text-green-700";icon="✅";}
+      else if(type==="error"){color="bg-red-100 border-red-500 text-red-700";icon="❌";}
+      else if(type==="warning"){color="bg-yellow-100 border-yellow-500 text-yellow-700";icon="⚠️";}
       const alert=document.createElement("div");
       alert.className=`flex items-center p-3 border-l-4 rounded shadow ${color} animate-fade-in`;
       alert.innerHTML=`<div class="mr-2">${icon}</div><div>${message}</div>`;
-      container.appendChild(alert);
-      setTimeout(()=>{alert.remove()},4000);
+      c.appendChild(alert); setTimeout(()=>alert.remove(),4000);
     }
 
-    // Tab switching (instant, no slide)
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    // Tabs
+    function switchTab(tabId){
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
       document.getElementById(tabId).classList.add('active');
     }
 
-    // Splash logic
-    window.addEventListener("load", ()=>{
+    // Cookies
+    function setCookie(name,value,days=365){
+      let d=new Date(); d.setTime(d.getTime()+days*24*60*60*1000);
+      document.cookie=`${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/`;
+    }
+    function getCookie(name){
+      let m=document.cookie.match(new RegExp('(^| )'+name+'=([^;]+)'));
+      return m?decodeURIComponent(m[2]):null;
+    }
+
+    // Webhooks
+    function loadWebhooks(){
+      const data=getCookie("webhooks"); let arr=data?JSON.parse(data):[];
+      const list=document.getElementById("webhookList"); list.innerHTML="";
+      const sel=document.getElementById("selectWebhook"); sel.innerHTML="";
+      arr.forEach((w,i)=>{
+        const li=document.createElement("li");
+        li.className="flex justify-between bg-gray-700 p-2 rounded";
+        li.innerHTML=`<span>${w.name}</span><button onclick="deleteWebhook(${i})" class="text-red-400">Delete</button>`;
+        list.appendChild(li);
+        let opt=document.createElement("option"); opt.value=w.url; opt.text=w.name; sel.add(opt);
+      });
+    }
+    function saveWebhook(){
+      const n=document.getElementById("webhookName").value.trim();
+      const u=document.getElementById("webhookUrl").value.trim();
+      if(!n||!u){showAlert("warning","Fill all fields!");return;}
+      let arr=JSON.parse(getCookie("webhooks")||"[]"); arr.push({name:n,url:u});
+      setCookie("webhooks",JSON.stringify(arr)); loadWebhooks();
+      document.getElementById("webhookName").value="";
+      document.getElementById("webhookUrl").value="";
+      showAlert("success","Webhook saved");
+    }
+    function deleteWebhook(i){
+      let arr=JSON.parse(getCookie("webhooks")||"[]"); arr.splice(i,1);
+      setCookie("webhooks",JSON.stringify(arr)); loadWebhooks();
+      showAlert("warning","Webhook deleted");
+    }
+
+    // Send message
+    function sendMessage(){
+      const sel=document.getElementById("selectWebhook");
+      if(!sel.value){showAlert("warning","No webhook selected!");return;}
+      const content=quill.root.innerHTML;
+      fetch(sel.value,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({text:content})
+      })
+      .then(r=>r.ok?showAlert("success","Message sent!"):showAlert("error","Webhook failed"))
+      .catch(()=>showAlert("error","Send failed"));
+    }
+
+    // Init
+    let quill;
+    window.addEventListener("load",()=>{
       showAlert("warning","Auth system disabled");
+      quill=new Quill('#editorBox',{theme:"snow"});
+      loadWebhooks();
       const splash=document.getElementById("splash");
       setTimeout(()=>{
         splash.classList.add("fade-out");
-        setTimeout(()=> splash.remove(), 1000);
-      }, 4200); // wait until trace finished + buffer
+        setTimeout(()=>splash.remove(),1000);
+      },3000);
     });
   </script>
 </body>
