@@ -6,161 +6,169 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/preline/dist/preline.js"></script>
   <style>
-    /* Splash Loading Bar */
-    #splash {
-      position: fixed;
-      inset: 0;
-      background: #111;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 50;
-    }
-    #loading-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      height: 4px;
-      background: red;
-      animation: load 5s linear forwards;
-    }
-    @keyframes load {
-      from { width: 0%; }
-      to { width: 100%; }
-    }
-    /* Toast Container */
-    #toast-container {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      z-index: 60;
-    }
-    .toast {
+    /* Toast animation */
+    .toast-enter {
       transform: translateX(120%);
       opacity: 0;
-      transition: transform 0.4s ease, opacity 0.4s ease;
     }
-    .toast.show {
+    .toast-enter-active {
       transform: translateX(0);
       opacity: 1;
+      transition: all 0.4s ease;
+    }
+    .toast-exit {
+      opacity: 0;
+      transition: opacity 0.4s ease;
     }
   </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body class="dark:bg-gray-900 dark:text-white min-h-screen flex flex-col">
 
-  <!-- Splash -->
-  <div id="splash">
-    <div class="text-3xl font-bold mb-4">Loading...</div>
-    <div id="loading-bar"></div>
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="fixed inset-0 flex items-center justify-center bg-gray-900 text-white text-2xl z-50">
+    Loading...
   </div>
 
   <!-- Navbar -->
-  <nav class="flex space-x-4 p-4 bg-gray-800">
-    <button onclick="switchTab('webhooks')" class="px-4 py-2 bg-gray-700 rounded">Webhooks</button>
-    <button onclick="switchTab('send')" class="px-4 py-2 bg-gray-700 rounded">Send Message</button>
+  <nav class="bg-gray-800 text-white p-4 flex justify-between">
+    <div class="text-lg font-bold">Chat Webhook</div>
+    <div class="space-x-4">
+      <button onclick="switchTab('webhooks')" class="hover:underline">Webhooks</button>
+      <button onclick="switchTab('send')" class="hover:underline">Send</button>
+    </div>
   </nav>
 
   <!-- Pages -->
-  <div id="pages" class="p-4">
-    <div id="webhooks" class="page">
-      <h1 class="text-xl font-bold mb-2">Manage Webhooks</h1>
-      <form id="webhookForm" class="space-y-2">
-        <input type="text" id="webhookUrl" placeholder="Enter Webhook URL"
-          class="w-full p-2 rounded bg-gray-800 text-white" required>
-        <button type="submit" class="px-4 py-2 bg-blue-600 rounded">Save Webhook</button>
+  <main class="flex-1 p-6">
+    <!-- Webhooks Page -->
+    <div id="page-webhooks" class="hidden">
+      <h2 class="text-xl font-bold mb-4">Manage Webhooks</h2>
+      <form id="webhook-form" class="space-y-4">
+        <input type="text" id="webhook-name" placeholder="Webhook Name" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600">
+        <input type="url" id="webhook-url" placeholder="Webhook URL" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600">
+        <button type="submit" class="bg-blue-600 px-4 py-2 rounded text-white">Save Webhook</button>
       </form>
-      <ul id="webhookList" class="mt-4 space-y-1"></ul>
+      <ul id="webhook-list" class="mt-6 space-y-2"></ul>
     </div>
 
-    <div id="send" class="page hidden">
-      <h1 class="text-xl font-bold mb-2">Send Message</h1>
-      <textarea id="messageInput" class="w-full p-2 rounded bg-gray-800 text-white"
-        placeholder="Type your message..."></textarea>
-      <button onclick="sendMessage()" class="mt-2 px-4 py-2 bg-green-600 rounded">Send</button>
+    <!-- Send Page -->
+    <div id="page-send" class="hidden">
+      <h2 class="text-xl font-bold mb-4">Send Message</h2>
+      <form id="send-form" class="space-y-4">
+        <select id="webhook-select" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"></select>
+        <textarea id="message" rows="4" placeholder="Your message" class="w-full p-2 border rounded dark:bg-gray-800 dark:border-gray-600"></textarea>
+        <button type="submit" class="bg-green-600 px-4 py-2 rounded text-white">Send</button>
+      </form>
     </div>
-  </div>
+  </main>
 
-  <!-- Toasts -->
-  <div id="toast-container"></div>
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 flex flex-col items-end space-y-2"></div>
 
-<script>
-  // Splash
-  window.addEventListener("load", () => {
-    setTimeout(() => {
-      document.getElementById("splash").style.display = "none";
-    }, 5000);
-  });
-
-  // Switch tabs
-  function switchTab(tab) {
-    document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
-    document.getElementById(tab).classList.remove("hidden");
-  }
-
-  // Webhook save
-  document.getElementById("webhookForm").addEventListener("submit", e => {
-    e.preventDefault();
-    const url = document.getElementById("webhookUrl").value;
-    if (url.trim() === "") return;
-    let hooks = JSON.parse(localStorage.getItem("webhooks") || "[]");
-    hooks.push(url);
-    localStorage.setItem("webhooks", JSON.stringify(hooks));
-    document.getElementById("webhookUrl").value = "";
-    renderWebhooks();
-    showToast("Webhook saved successfully!");
-  });
-
-  function renderWebhooks() {
-    const hooks = JSON.parse(localStorage.getItem("webhooks") || "[]");
-    const list = document.getElementById("webhookList");
-    list.innerHTML = "";
-    hooks.forEach((h, i) => {
-      const li = document.createElement("li");
-      li.textContent = h;
-      li.className = "bg-gray-700 p-2 rounded";
-      list.appendChild(li);
+  <script>
+    // Loading Screen
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("loading-screen").style.display = "none";
+        switchTab('webhooks');
+      }, 5000);
     });
-  }
 
-  renderWebhooks();
+    // Switch Tabs
+    function switchTab(tab) {
+      document.querySelectorAll("main > div").forEach(el => el.classList.add("hidden"));
+      document.getElementById("page-" + tab).classList.remove("hidden");
+    }
 
-  // Send message
-  function sendMessage() {
-    const msg = document.getElementById("messageInput").value;
-    if (msg.trim() === "") return showToast("Message cannot be empty");
-    showToast("Message sent successfully!");
-    document.getElementById("messageInput").value = "";
-  }
+    // Toast
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = `toast-enter p-4 rounded shadow-md flex items-center space-x-2 ${
+        type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+      }`;
+      toast.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          ${type === "success"
+            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />'
+            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />'}
+        </svg>
+        <span>${message}</span>
+      `;
+      container.prepend(toast);
 
-  // Toast system
-  function showToast(message) {
-    const container = document.getElementById("toast-container");
-    const toast = document.createElement("div");
-    toast.className = "toast bg-gray-800 text-white px-4 py-2 rounded shadow flex items-center gap-2";
-    toast.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none"
-        viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M5 13l4 4L19 7" />
-      </svg>
-      <span>${message}</span>
-    `;
-    container.appendChild(toast);
+      // Animate in
+      requestAnimationFrame(() => toast.classList.add("toast-enter-active"));
 
-    // animate in
-    setTimeout(() => toast.classList.add("show"), 50);
+      // Remove after 3s
+      setTimeout(() => {
+        toast.classList.add("toast-exit");
+        setTimeout(() => toast.remove(), 400);
+      }, 3000);
+    }
 
-    // auto remove
-    setTimeout(() => {
-      toast.classList.remove("show");
-      setTimeout(() => toast.remove(), 400);
-    }, 4000);
-  }
-</script>
+    // Webhooks from localStorage
+    let webhooks = JSON.parse(localStorage.getItem("webhooks") || "[]");
+
+    function renderWebhooks() {
+      const list = document.getElementById("webhook-list");
+      const select = document.getElementById("webhook-select");
+      list.innerHTML = "";
+      select.innerHTML = "";
+      webhooks.forEach((w, i) => {
+        const li = document.createElement("li");
+        li.className = "p-2 bg-gray-700 rounded flex justify-between items-center";
+        li.innerHTML = `<span>${w.name}</span>
+          <button onclick="deleteWebhook(${i})" class="text-red-400 hover:text-red-600">Delete</button>`;
+        list.appendChild(li);
+
+        const option = document.createElement("option");
+        option.value = w.url;
+        option.textContent = w.name;
+        select.appendChild(option);
+      });
+    }
+
+    document.getElementById("webhook-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const name = document.getElementById("webhook-name").value.trim();
+      const url = document.getElementById("webhook-url").value.trim();
+      if (!name || !url) return showToast("Fill all fields", "error");
+      webhooks.push({ name, url });
+      localStorage.setItem("webhooks", JSON.stringify(webhooks));
+      renderWebhooks();
+      showToast("Webhook saved!", "success");
+      e.target.reset();
+    });
+
+    function deleteWebhook(i) {
+      webhooks.splice(i, 1);
+      localStorage.setItem("webhooks", JSON.stringify(webhooks));
+      renderWebhooks();
+      showToast("Webhook deleted", "success");
+    }
+
+    document.getElementById("send-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const url = document.getElementById("webhook-select").value;
+      const msg = document.getElementById("message").value.trim();
+      if (!url || !msg) return showToast("Select webhook & enter message", "error");
+
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: msg })
+      }).then(res => {
+        if (res.ok) {
+          showToast("Message sent!", "success");
+          e.target.reset();
+        } else {
+          showToast("Failed to send", "error");
+        }
+      });
+    });
+
+    renderWebhooks();
+  </script>
 </body>
 </html>
