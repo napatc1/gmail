@@ -6,169 +6,174 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/preline/dist/preline.js"></script>
   <style>
-    /* Loading screen */
-    #loadingScreen {
-      position: fixed;
-      inset: 0;
-      background: black;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 50;
-    }
-    /* Loading bar at top */
-    #loadingBar {
+    /* Red loading bar */
+    #loading-bar {
       position: fixed;
       top: 0;
       left: 0;
       height: 4px;
       background: red;
-      width: 0;
-      z-index: 60;
+      width: 0%;
       transition: width 5s linear;
+      z-index: 50;
     }
-    /* Toasts */
-    .toast {
-      background: #1f2937;
-      color: white;
-      padding: 0.75rem 1rem;
-      border-radius: 0.5rem;
-      margin-top: 0.5rem;
+
+    /* Toast container */
+    #toast-container {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 0.5rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-      transform: translateX(120%);
-      opacity: 0;
-      transition: all 0.4s ease;
+      z-index: 100;
     }
+
+    .toast {
+      transform: translateX(150%);
+      opacity: 0;
+      transition: transform 0.5s ease, opacity 0.5s ease;
+    }
+
     .toast.show {
       transform: translateX(0);
       opacity: 1;
     }
-    #toastContainer {
-      position: fixed;
-      bottom: 1rem;
-      right: 1rem;
-      z-index: 100;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-    }
   </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body class="bg-gray-900 text-white h-screen">
 
-  <!-- Loading -->
-  <div id="loadingScreen">
-    <div id="loadingBar"></div>
-    <h1 class="text-3xl font-bold">Loading...</h1>
+  <!-- Loading bar -->
+  <div id="loading-bar"></div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="flex items-center justify-center h-screen bg-gray-900 text-white text-3xl">
+    Loading...
   </div>
 
-  <!-- Main content -->
-  <div id="mainContent" class="hidden p-6">
-    <h1 class="text-2xl font-bold mb-4">Webhook Manager</h1>
-    <form id="webhookForm" class="space-y-3">
-      <input id="webhookInput" type="text" placeholder="Enter webhook URL"
-        class="w-full px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white">
-      <button type="submit" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500">Save Webhook</button>
+  <!-- Main App -->
+  <div id="app" class="hidden p-6">
+    <h1 class="text-2xl font-bold mb-4">Chat Webhook Manager</h1>
+
+    <!-- Webhook Form -->
+    <form id="webhook-form" class="mb-6">
+      <input type="text" id="webhook-url" placeholder="Enter Webhook URL"
+        class="w-full p-2 rounded bg-gray-800 text-white mb-2">
+      <button type="submit"
+        class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Add Webhook</button>
     </form>
 
-    <div class="mt-6">
-      <h2 class="text-xl font-semibold mb-2">Saved Webhooks</h2>
-      <ul id="webhookList" class="space-y-2"></ul>
-    </div>
+    <!-- Webhook List -->
+    <div id="webhook-list" class="mb-6"></div>
+
+    <!-- Message Sender -->
+    <textarea id="message" placeholder="Type your message..."
+      class="w-full p-2 rounded bg-gray-800 text-white mb-2"></textarea>
+    <button onclick="sendMessage()"
+      class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">Send Message</button>
   </div>
 
-  <!-- Toast container -->
-  <div id="toastContainer"></div>
+  <!-- Toasts -->
+  <div id="toast-container"></div>
 
-<script>
-  // --- LOADING SCREEN ---
-  window.addEventListener("load", () => {
-    const bar = document.getElementById("loadingBar");
-    setTimeout(() => { bar.style.width = "100%"; }, 50); // animate bar
+  <script>
+    const loadingBar = document.getElementById('loading-bar');
+    const loadingScreen = document.getElementById('loading-screen');
+    const app = document.getElementById('app');
+
+    // Start loading animation
     setTimeout(() => {
-      document.getElementById("loadingScreen").style.display = "none";
-      document.getElementById("mainContent").classList.remove("hidden");
+      loadingBar.style.width = "100%";
+    }, 100);
+
+    // Hide loading screen after 5s
+    setTimeout(() => {
+      loadingScreen.classList.add('hidden');
+      app.classList.remove('hidden');
     }, 5000);
-  });
 
-  // --- COOKIES ---
-  function getCookies(name) {
-    let matches = document.cookie.match(new RegExp(
-      "(?:^|; )" + name.replace(/([.$?*|{}()\\[\\]\\\\\\/\\+^])/g, '\\$1') + "=([^;]*)"
-    ));
-    return matches ? decodeURIComponent(matches[1]) : "";
-  }
-  function setCookies(name, value, days) {
-    let d = new Date();
-    d.setTime(d.getTime() + (days*24*60*60*1000));
-    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/`;
-  }
+    // Toast system
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = `toast px-4 py-2 rounded shadow bg-gray-800 text-white flex items-center gap-2`;
 
-  // --- WEBHOOK FORM ---
-  const webhookForm = document.getElementById("webhookForm");
-  const webhookInput = document.getElementById("webhookInput");
-  const webhookList = document.getElementById("webhookList");
+      let svgIcon = "";
+      if (type === "success") {
+        svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L9 11.586 6.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l7-7a1 1 0 000-1.414z" clip-rule="evenodd" /></svg>`;
+      } else if (type === "error") {
+        svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-4h2v2h-2v-2zm0-8h2v6h-2V6z" clip-rule="evenodd" /></svg>`;
+      }
 
-  function loadWebhooks() {
-    let saved = getCookies("webhooks");
-    let arr = saved ? JSON.parse(saved) : [];
-    webhookList.innerHTML = "";
-    arr.forEach((url, i) => {
-      let li = document.createElement("li");
-      li.className = "flex justify-between items-center bg-gray-800 p-2 rounded";
-      li.innerHTML = `<span>${url}</span>
-        <button class="text-red-500" onclick="removeWebhook(${i})">Remove</button>`;
-      webhookList.appendChild(li);
+      toast.innerHTML = `${svgIcon}<span>${message}</span>`;
+      container.appendChild(toast);
+
+      // Slide in
+      setTimeout(() => toast.classList.add("show"), 50);
+
+      // Auto remove after 4s
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 500);
+      }, 4000);
+    }
+
+    // Webhook management with cookies
+    function saveWebhooks(webhooks) {
+      document.cookie = "webhooks=" + encodeURIComponent(JSON.stringify(webhooks)) + "; path=/";
+    }
+
+    function loadWebhooks() {
+      const match = document.cookie.match(/(^| )webhooks=([^;]+)/);
+      return match ? JSON.parse(decodeURIComponent(match[2])) : [];
+    }
+
+    function renderWebhooks() {
+      const list = document.getElementById("webhook-list");
+      const webhooks = loadWebhooks();
+      list.innerHTML = "";
+      webhooks.forEach((url, i) => {
+        const div = document.createElement("div");
+        div.className = "flex justify-between items-center bg-gray-800 p-2 rounded mb-2";
+        div.innerHTML = `<span>${url}</span>
+          <button onclick="removeWebhook(${i})" class="text-red-500">Remove</button>`;
+        list.appendChild(div);
+      });
+    }
+
+    function removeWebhook(i) {
+      const webhooks = loadWebhooks();
+      webhooks.splice(i, 1);
+      saveWebhooks(webhooks);
+      renderWebhooks();
+      showToast("Webhook removed", "success");
+    }
+
+    document.getElementById("webhook-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const url = document.getElementById("webhook-url").value.trim();
+      if (!url) return;
+      const webhooks = loadWebhooks();
+      webhooks.push(url);
+      saveWebhooks(webhooks);
+      document.getElementById("webhook-url").value = "";
+      renderWebhooks();
+      showToast("Webhook added", "success");
     });
-  }
 
-  function removeWebhook(i) {
-    let saved = getCookies("webhooks");
-    let arr = saved ? JSON.parse(saved) : [];
-    arr.splice(i, 1);
-    setCookies("webhooks", JSON.stringify(arr), 30);
-    loadWebhooks();
-    showToast("Webhook removed", "success");
-  }
+    function sendMessage() {
+      const message = document.getElementById("message").value.trim();
+      if (!message) return showToast("Message cannot be empty", "error");
 
-  webhookForm.addEventListener("submit", e => {
-    e.preventDefault();
-    let url = webhookInput.value.trim();
-    if(!url) return;
-    let saved = getCookies("webhooks");
-    let arr = saved ? JSON.parse(saved) : [];
-    arr.push(url);
-    setCookies("webhooks", JSON.stringify(arr), 30);
-    webhookInput.value = "";
-    loadWebhooks();
-    showToast("Webhook saved!", "success");
-  });
+      const webhooks = loadWebhooks();
+      if (webhooks.length === 0) return showToast("No webhooks available", "error");
 
-  // --- TOASTS ---
-  function showToast(message, type="success") {
-    const container = document.getElementById("toastContainer");
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-      </svg>
-      <span>${message}</span>
-    `;
-    container.prepend(toast);
-    setTimeout(()=>toast.classList.add("show"),100);
-    setTimeout(()=>{
-      toast.classList.remove("show");
-      setTimeout(()=>toast.remove(),400);
-    },3000);
-  }
+      // Simulate sending
+      console.log("Sending to webhooks:", webhooks, "Message:", message);
+      showToast("Message sent successfully!", "success");
+    }
 
-  loadWebhooks();
-</script>
+    renderWebhooks();
+  </script>
 </body>
 </html>
