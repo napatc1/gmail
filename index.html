@@ -2,101 +2,173 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Webhook Sender</title>
-
-  <!-- Tailwind CSS -->
+  <title>Chat Webhook</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- FlyonUI CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/flyonui@1.0.0/dist/flyon.min.css" rel="stylesheet">
-  <script>
-// Simple, reusable alert system with TailwindCSS + SVG icons
-function showAlert(type, message) {
-  const container = document.getElementById("alert-container");
-
-  // Pick icon + color
-  let icon = "";
-  let color = "";
-  if (type === "success") {
-    color = "bg-green-100 border-green-500 text-green-700";
-    icon = `<svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 
-              010 1.414l-8.414 8.414a1 1 0 01-1.414 0L3.293 
-              11.12a1 1 0 011.414-1.414l3.172 3.172 
-              7.707-7.707a1 1 0 011.414 0z" clip-rule="evenodd"/>
-           </svg>`;
-  } else if (type === "error") {
-    color = "bg-red-100 border-red-500 text-red-700";
-    icon = `<svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 
-              8 0 000 16zm-1-5h2v2h-2v-2zm0-6h2v4h-2V7z" clip-rule="evenodd"/>
-            </svg>`;
-  } else if (type === "warning") {
-    color = "bg-yellow-100 border-yellow-500 text-yellow-700";
-    icon = `<svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 
-              2.72-1.36 3.485 0l6.516 11.59c.75 1.335-.213 
-              3.01-1.742 3.01H3.483c-1.53 0-2.492-1.675-1.742-3.01L8.257 
-              3.1zM11 13a1 1 0 11-2 0 1 1 0 
-              012 0zm-1-2a1 1 0 01-1-1V7a1 1 0 
-              112 0v3a1 1 0 01-1 1z" clip-rule="evenodd"/>
-            </svg>`;
-  }
-
-  // Create alert element
-  const alert = document.createElement("div");
-  alert.className = `flex items-center p-3 border-l-4 rounded shadow ${color} animate-fade-in`;
-  alert.innerHTML = `
-    <div class="mr-2">${icon}</div>
-    <div class="flex-1">${message}</div>
-    <button onclick="this.parentElement.remove()" class="ml-3 text-xl font-bold leading-none focus:outline-none">&times;</button>
-  `;
-
-  container.appendChild(alert);
-
-  // Auto-remove after 4s
-  setTimeout(() => {
-    if (alert && alert.parentElement) {
-      alert.remove();
+  <script src="https://unpkg.com/preline/dist/preline.js"></script>
+  <style>
+    /* Loading screen */
+    #loadingScreen {
+      position: fixed;
+      inset: 0;
+      background: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 50;
     }
-  }, 4000);
-}
-</script>
-
-<style>
-/* Tiny fade-in animation */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in { animation: fadeIn 0.3s ease-out; }
-</style>
-
-
+    /* Loading bar at top */
+    #loadingBar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 4px;
+      background: red;
+      width: 0;
+      z-index: 60;
+      transition: width 5s linear;
+    }
+    /* Toasts */
+    .toast {
+      background: #1f2937;
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      transform: translateX(120%);
+      opacity: 0;
+      transition: all 0.4s ease;
+    }
+    .toast.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    #toastContainer {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+  </style>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
-  <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
-    <div class="alert alert-error" role="alert">302: Moved go here: https://napatc1.github.io/gmail/index1.html</div>
-    <h1 class="text-2xl font-bold mb-6">Send Message to Webhook</h1>
+<body class="bg-gray-900 text-white">
 
-    <label class="block mb-4 text-left">
-      <span class="text-gray-300">Webhook URL:</span>
-      <input type="text" id="webhookUrl" placeholder="Enter webhook URL here"
-        class="input input-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white">
-    </label>
-
-    <label class="block mb-6 text-left">
-      <span class="text-gray-300">Message:</span>
-      <textarea id="message" rows="4" placeholder="Enter your message"
-        class="textarea textarea-bordered w-full mt-1 bg-gray-700 border-gray-600 text-white"></textarea>
-    </label>
-    <div id="alert-container" class="fixed bottom-4 right-4 flex flex-col space-y-3 z-50"></div>
-
-    <button onclick="showAlert('error','HTTP:302 Moved')" class="btn btn-primary w-full">Send</button>
-    <p id="status" class="mt-4 text-sm text-gray-300"></p>
+  <!-- Loading -->
+  <div id="loadingScreen">
+    <div id="loadingBar"></div>
+    <h1 class="text-3xl font-bold">Loading...</h1>
   </div>
 
+  <!-- Main content -->
+  <div id="mainContent" class="hidden p-6">
+    <h1 class="text-2xl font-bold mb-4">Webhook Manager</h1>
+    <form id="webhookForm" class="space-y-3">
+      <input id="webhookInput" type="text" placeholder="Enter webhook URL"
+        class="w-full px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white">
+      <button type="submit" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500">Save Webhook</button>
+    </form>
 
+    <div class="mt-6">
+      <h2 class="text-xl font-semibold mb-2">Saved Webhooks</h2>
+      <ul id="webhookList" class="space-y-2"></ul>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer"></div>
+
+<script>
+  // --- LOADING SCREEN ---
+  window.addEventListener("load", () => {
+    const bar = document.getElementById("loadingBar");
+    setTimeout(() => { bar.style.width = "100%"; }, 50); // animate bar
+    setTimeout(() => {
+      document.getElementById("loadingScreen").style.display = "none";
+      document.getElementById("mainContent").classList.remove("hidden");
+    }, 5000);
+  });
+
+  // --- COOKIES ---
+  function getCookies(name) {
+    let matches = document.cookie.match(new RegExp(
+      "(?:^|; )" + name.replace(/([.$?*|{}()\\[\\]\\\\\\/\\+^])/g, '\\$1') + "=([^;]*)"
+    ));
+    return matches ? decodeURIComponent(matches[1]) : "";
+  }
+  function setCookies(name, value, days) {
+    let d = new Date();
+    d.setTime(d.getTime() + (days*24*60*60*1000));
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/`;
+  }
+
+  // --- WEBHOOK FORM ---
+  const webhookForm = document.getElementById("webhookForm");
+  const webhookInput = document.getElementById("webhookInput");
+  const webhookList = document.getElementById("webhookList");
+
+  function loadWebhooks() {
+    let saved = getCookies("webhooks");
+    let arr = saved ? JSON.parse(saved) : [];
+    webhookList.innerHTML = "";
+    arr.forEach((url, i) => {
+      let li = document.createElement("li");
+      li.className = "flex justify-between items-center bg-gray-800 p-2 rounded";
+      li.innerHTML = `<span>${url}</span>
+        <button class="text-red-500" onclick="removeWebhook(${i})">Remove</button>`;
+      webhookList.appendChild(li);
+    });
+  }
+
+  function removeWebhook(i) {
+    let saved = getCookies("webhooks");
+    let arr = saved ? JSON.parse(saved) : [];
+    arr.splice(i, 1);
+    setCookies("webhooks", JSON.stringify(arr), 30);
+    loadWebhooks();
+    showToast("Webhook removed", "success");
+  }
+
+  webhookForm.addEventListener("submit", e => {
+    e.preventDefault();
+    let url = webhookInput.value.trim();
+    if(!url) return;
+    let saved = getCookies("webhooks");
+    let arr = saved ? JSON.parse(saved) : [];
+    arr.push(url);
+    setCookies("webhooks", JSON.stringify(arr), 30);
+    webhookInput.value = "";
+    loadWebhooks();
+    showToast("Webhook saved!", "success");
+  });
+
+  // --- TOASTS ---
+  function showToast(message, type="success") {
+    const container = document.getElementById("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+      <span>${message}</span>
+    `;
+    container.prepend(toast);
+    setTimeout(()=>toast.classList.add("show"),100);
+    setTimeout(()=>{
+      toast.classList.remove("show");
+      setTimeout(()=>toast.remove(),400);
+    },3000);
+  }
+
+  loadWebhooks();
+</script>
 </body>
 </html>
