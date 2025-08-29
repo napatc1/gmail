@@ -1,153 +1,165 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <title>Chat Webhook</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/preline/dist/preline.js"></script>
   <style>
-    /* Loading Bar */
-    #loadingBar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 4px;
-      width: 0;
-      background-color: red;
-      z-index: 9999;
-      transition: width 2s ease-in-out;
-    }
-
-    /* Toasts */
+    .page { display: none; }
+    .active { display: block; }
     .toast {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      border-radius: 0.375rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      color: white;
+      min-width: 200px;
+      transform: translateX(120%);
+      animation: slideIn 0.4s forwards;
       margin-top: 0.5rem;
-      animation: slideIn 0.3s ease forwards;
     }
-
-    .toast.success { background: #dcfce7; color: #166534; }
-    .toast.error { background: #fee2e2; color: #991b1b; }
-    .toast.info { background: #dbeafe; color: #1e3a8a; }
-
     @keyframes slideIn {
-      from { opacity: 0; transform: translateX(100%); }
-      to { opacity: 1; transform: translateX(0); }
+      from { transform: translateX(120%); }
+      to { transform: translateX(0); }
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
 
-  <!-- Loading -->
-  <div id="loadingBar"></div>
-  <div id="loadingScreen" class="fixed inset-0 flex items-center justify-center bg-white z-50">
-    <h1 class="text-3xl font-bold">Loading...</h1>
-  </div>
-
-  <!-- Header -->
-  <header class="bg-gray-800 text-white p-4 flex justify-between">
-    <h1 class="text-xl font-bold">Chat Webhook</h1>
-    <nav class="space-x-4">
-      <button onclick="switchPage('webhooks')" class="hover:underline">Webhooks</button>
-      <button onclick="switchPage('send')" class="hover:underline">Send</button>
-    </nav>
-  </header>
+  <!-- Navbar -->
+  <nav class="flex justify-between p-4 bg-gray-800">
+    <div class="font-bold">Chat Webhook</div>
+    <div>
+      <button onclick="showPage('manager')" class="px-3 py-1 bg-gray-700 rounded">Webhooks</button>
+      <button onclick="showPage('sender')" class="px-3 py-1 bg-gray-700 rounded">Send</button>
+      <button onclick="toggleDarkMode()" class="px-3 py-1 bg-gray-700 rounded">🌙</button>
+    </div>
+  </nav>
 
   <!-- Pages -->
-  <main class="flex-1 p-6">
-    <!-- Webhooks Page -->
-    <div id="page-webhooks" class="page">
-      <h2 class="text-2xl font-bold mb-4">Webhook Manager</h2>
-      <ul id="webhookList" class="list-disc pl-6 text-gray-800">
-        <li>Webhook #1</li>
-        <li>Webhook #2</li>
-      </ul>
-      <button onclick="addWebhook()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Add Webhook</button>
-    </div>
+  <main class="flex-grow p-6">
 
-    <!-- Send Message Page -->
-    <div id="page-send" class="page hidden">
-      <h2 class="text-2xl font-bold mb-4">Send Message</h2>
-      <button onclick="openSendForm()" class="bg-green-600 text-white px-4 py-2 rounded">Send Message</button>
-    </div>
+    <!-- Webhook Manager -->
+    <section id="manager" class="page active">
+      <h2 class="text-2xl mb-4">Webhook Manager</h2>
+      <form onsubmit="addWebhook(event)" class="mb-4 flex gap-2">
+        <input id="webhookInput" type="url" placeholder="Enter Webhook URL" class="flex-grow px-3 py-2 rounded text-black">
+        <button class="bg-blue-600 px-4 py-2 rounded">Add</button>
+      </form>
+      <ul id="webhookList" class="space-y-2"></ul>
+    </section>
+
+    <!-- Message Sender -->
+    <section id="sender" class="page">
+      <h2 class="text-2xl mb-4">Send Message</h2>
+      <form onsubmit="sendMessage(event)" class="space-y-3">
+        <select id="webhookSelect" class="w-full px-3 py-2 rounded text-black"></select>
+        <textarea id="messageInput" rows="4" placeholder="Type your message..." class="w-full px-3 py-2 rounded text-black"></textarea>
+        <button class="bg-green-600 px-4 py-2 rounded">Send</button>
+      </form>
+    </section>
+
   </main>
 
-  <!-- Popup Form -->
-  <div id="sendForm" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white p-6 rounded shadow w-96">
-      <h3 class="text-lg font-bold mb-4">Send a Message</h3>
-      <input id="messageInput" type="text" placeholder="Enter message" class="w-full p-2 border rounded mb-4">
-      <div class="flex justify-end space-x-2">
-        <button onclick="closeSendForm()" class="px-4 py-2 border rounded">Cancel</button>
-        <button onclick="sendMessage()" class="px-4 py-2 bg-green-600 text-white rounded">Send</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast Container -->
-  <div id="toastContainer" class="fixed bottom-4 right-4 flex flex-col items-end space-y-2"></div>
+  <div id="toastContainer"></div>
 
   <script>
-    // Loading
-    window.addEventListener("load", () => {
-      const bar = document.getElementById("loadingBar");
-      bar.style.width = "100%";
-      setTimeout(() => {
-        document.getElementById("loadingScreen").style.display = "none";
-      }, 2000);
-    });
-
-    // Page Switcher
-    function switchPage(page) {
-      document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
-      document.getElementById("page-" + page).classList.remove("hidden");
+    // Page switching
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(page).classList.add('active');
     }
 
-    // Webhooks
-    function addWebhook() {
-      const list = document.getElementById("webhookList");
-      const item = document.createElement("li");
-      item.textContent = "New Webhook";
-      list.appendChild(item);
-      showToast("Webhook added!", "success");
+    // Dark mode
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('dark', document.documentElement.classList.contains('dark'));
+    }
+    if (localStorage.getItem('dark') === 'false') {
+      document.documentElement.classList.remove('dark');
     }
 
-    // Form
-    function openSendForm() {
-      document.getElementById("sendForm").classList.remove("hidden");
+    // Webhook Manager
+    let webhooks = JSON.parse(localStorage.getItem('webhooks') || '[]');
+    const listEl = document.getElementById('webhookList');
+    const selectEl = document.getElementById('webhookSelect');
+
+    function renderWebhooks() {
+      listEl.innerHTML = '';
+      selectEl.innerHTML = '';
+      webhooks.forEach((url, idx) => {
+        let li = document.createElement('li');
+        li.className = "bg-gray-700 p-3 rounded flex justify-between";
+        li.innerHTML = `
+          <span>${url}</span>
+          <div>
+            <button onclick="editWebhook(${idx})" class="px-2 bg-yellow-600 rounded mr-1">Edit</button>
+            <button onclick="removeWebhook(${idx})" class="px-2 bg-red-600 rounded">Delete</button>
+          </div>`;
+        listEl.appendChild(li);
+
+        let opt = document.createElement('option');
+        opt.value = url;
+        opt.textContent = url;
+        selectEl.appendChild(opt);
+      });
+      localStorage.setItem('webhooks', JSON.stringify(webhooks));
     }
-    function closeSendForm() {
-      document.getElementById("sendForm").classList.add("hidden");
+
+    function addWebhook(e) {
+      e.preventDefault();
+      const val = document.getElementById('webhookInput').value;
+      if (!val) return;
+      webhooks.push(val);
+      document.getElementById('webhookInput').value = '';
+      renderWebhooks();
+      showToast('Webhook added!', 'success');
     }
-    function sendMessage() {
-      const msg = document.getElementById("messageInput").value.trim();
-      if (!msg) {
-        showToast("Message cannot be empty!", "error");
-        return;
+
+    function removeWebhook(idx) {
+      webhooks.splice(idx, 1);
+      renderWebhooks();
+      showToast('Webhook removed!', 'error');
+    }
+
+    function editWebhook(idx) {
+      const newUrl = prompt("Edit Webhook URL:", webhooks[idx]);
+      if (newUrl) {
+        webhooks[idx] = newUrl;
+        renderWebhooks();
+        showToast('Webhook updated!', 'info');
       }
-      closeSendForm();
-      showToast("Message sent: " + msg, "success");
     }
 
-    // Toast
-    function showToast(message, type="info") {
-      const container = document.getElementById("toastContainer");
-      const toast = document.createElement("div");
-      toast.className = `toast ${type}`;
-      let svg = "";
-      if (type === "success") svg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>`;
-      if (type === "error") svg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>`;
-      if (type === "info") svg = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-      toast.innerHTML = svg + message;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.remove();
-      }, 4000);
+    // Send Message
+    function sendMessage(e) {
+      e.preventDefault();
+      const url = selectEl.value;
+      const msg = document.getElementById('messageInput').value;
+      if (!url || !msg) return showToast("Please select a webhook and enter a message", "error");
+
+      // Example only (disabled request)
+      showToast(`Message sent to ${url}`, "success");
+      document.getElementById('messageInput').value = '';
     }
+
+    // Toast System
+    function showToast(msg, type) {
+      const colors = {
+        success: "bg-green-600",
+        error: "bg-red-600",
+        info: "bg-blue-600"
+      };
+      const toast = document.createElement('div');
+      toast.className = `toast ${colors[type]}`;
+      toast.textContent = msg;
+      document.getElementById('toastContainer').appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    renderWebhooks();
   </script>
 </body>
 </html>
