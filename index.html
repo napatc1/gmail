@@ -2,198 +2,102 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Chat Webhook</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Google Chat Webhook Sender</title>
   <style>
-    /* Loading bar */
-    #loading-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 4px;
-      background: red;
-      width: 0%;
-      transition: width 3s ease;
-      z-index: 9999;
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
     }
-    /* Page hiding */
-    .page { display: none; }
-    .active { display: block; }
-
-    /* Toast system */
-    #toast-container {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 99999;
+    #app {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
     }
     .toast {
-      transform: translateX(100%);
-      opacity: 0;
-      transition: transform 0.5s ease, opacity 0.5s ease;
-      padding: 12px 16px;
-      border-radius: 8px;
-      color: white;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 200px;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      display: none;
     }
-    .toast.show {
-      transform: translateX(0);
-      opacity: 1;
+    .toast.success {
+      background: #d4edda;
+      color: #155724;
     }
-    .toast-success { background: #16a34a; } /* Green */
-    .toast-error { background: #dc2626; }   /* Red */
-    .toast-info { background: #2563eb; }    /* Blue */
+    .toast.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
   </style>
 </head>
-<body class="bg-white dark:bg-gray-900 dark:text-white transition-colors duration-500">
-
-  <!-- Loading bar -->
-  <div id="loading-bar"></div>
-
-  <!-- Navbar -->
-  <nav class="p-4 flex justify-between bg-gray-200 dark:bg-gray-800">
-    <div>
-      <button onclick="showPage('webhooks')" class="px-3">Webhook Manager</button>
-      <button onclick="showPage('send')" class="px-3">Send Message</button>
-    </div>
-    <button onclick="toggleDarkMode()" class="px-3">🌙</button>
-  </nav>
-
-  <!-- Pages -->
-  <main class="p-6">
-    <!-- Webhook Manager -->
-    <section id="webhooks" class="page active">
-      <h1 class="text-2xl font-bold mb-4">Webhook Manager</h1>
-      <input id="webhook-input" type="text" placeholder="Enter Webhook URL"
-             class="border p-2 rounded w-1/2 dark:bg-gray-700 dark:border-gray-600">
-      <button onclick="addWebhook()" class="ml-2 px-4 py-2 bg-blue-600 text-white rounded">Add</button>
-      <ul id="webhook-list" class="mt-4 space-y-2"></ul>
-    </section>
-
-    <!-- Send Message -->
-    <section id="send" class="page">
-      <h1 class="text-2xl font-bold mb-4">Send Message</h1>
-      <select id="webhook-select" class="border p-2 rounded dark:bg-gray-700 dark:border-gray-600">
-        <option value="">Select Webhook</option>
-      </select>
-      <textarea id="message-input" placeholder="Type your message..."
-                class="block mt-4 w-1/2 border p-2 rounded dark:bg-gray-700 dark:border-gray-600"></textarea>
-      <button onclick="sendMessage()" class="mt-2 px-4 py-2 bg-green-600 text-white rounded">Send</button>
-    </section>
-  </main>
-
-  <!-- Toasts -->
-  <div id="toast-container"></div>
+<body>
+  <div id="app">
+    <h2>Google Chat Webhook Sender</h2>
+    <input type="text" id="webhookUrl" placeholder="Enter Webhook URL">
+    <input type="text" id="messageInput" placeholder="Enter your message">
+    <button onclick="sendMessage()">Send</button>
+    <div id="toast" class="toast"></div>
+  </div>
 
   <script>
-    // --- Loading bar ---
-    window.addEventListener("load", () => {
-      const bar = document.getElementById("loading-bar");
-      bar.style.width = "100%";
-      setTimeout(() => bar.style.display = "none", 3200);
-    });
+    async function sendMessage() {
+      const url = document.getElementById("webhookUrl").value.trim();
+      const message = document.getElementById("messageInput").value.trim();
+      const toast = document.getElementById("toast");
 
-    // --- Page navigation ---
-    function showPage(id) {
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-    }
+      if (!url) {
+        showToast("Please enter a webhook URL", "error");
+        return;
+      }
+      if (!message) {
+        showToast("Please enter a message", "error");
+        return;
+      }
 
-    // --- Dark mode ---
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark");
-    }
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: message })
+        });
 
-    // --- Webhook manager ---
-    let webhooks = JSON.parse(localStorage.getItem("webhooks") || "[]");
-
-    function renderWebhooks() {
-      const list = document.getElementById("webhook-list");
-      const select = document.getElementById("webhook-select");
-      list.innerHTML = "";
-      select.innerHTML = "<option value=''>Select Webhook</option>";
-
-      webhooks.forEach((url, index) => {
-        const li = document.createElement("li");
-        li.className = "flex justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded";
-        li.innerHTML = `
-          <span>${url}</span>
-          <div>
-            <button onclick="editWebhook(${index})" class="px-2 text-blue-600">Edit</button>
-            <button onclick="deleteWebhook(${index})" class="px-2 text-red-600">Delete</button>
-          </div>
-        `;
-        list.appendChild(li);
-
-        const option = document.createElement("option");
-        option.value = url;
-        option.textContent = url;
-        select.appendChild(option);
-      });
-    }
-
-    function addWebhook() {
-      const input = document.getElementById("webhook-input");
-      if (input.value.trim() === "") return showToast("Please enter a URL", "error");
-      webhooks.push(input.value.trim());
-      localStorage.setItem("webhooks", JSON.stringify(webhooks));
-      input.value = "";
-      renderWebhooks();
-      showToast("Webhook added!", "success");
-    }
-
-    function editWebhook(index) {
-      const newUrl = prompt("Edit Webhook URL:", webhooks[index]);
-      if (newUrl) {
-        webhooks[index] = newUrl;
-        localStorage.setItem("webhooks", JSON.stringify(webhooks));
-        renderWebhooks();
-        showToast("Webhook updated!", "info");
+        if (response.ok) {
+          showToast("Message sent ✅", "success");
+        } else {
+          const errorText = await response.text();
+          showToast("Error " + response.status + ": " + errorText, "error");
+        }
+      } catch (err) {
+        showToast("Request failed: " + err.message, "error");
       }
     }
 
-    function deleteWebhook(index) {
-      webhooks.splice(index, 1);
-      localStorage.setItem("webhooks", JSON.stringify(webhooks));
-      renderWebhooks();
-      showToast("Webhook deleted!", "error");
-    }
-
-    renderWebhooks();
-
-    // --- Send Message ---
-    function sendMessage() {
-      const webhook = document.getElementById("webhook-select").value;
-      const message = document.getElementById("message-input").value;
-      if (!webhook || !message) return showToast("Webhook and message required!", "error");
-      showToast("Message sent successfully!", "success");
-      document.getElementById("message-input").value = "";
-    }
-
-    // --- Toast system ---
     function showToast(msg, type) {
-      const container = document.getElementById("toast-container");
-      const toast = document.createElement("div");
-      toast.className = `toast toast-${type}`;
-      toast.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          ${type === "success" ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />' :
-            type === "error" ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />' :
-            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 18h.01M12 6h.01" />'}
-        </svg>
-        <span>${msg}</span>
-      `;
-      container.appendChild(toast);
-      setTimeout(() => toast.classList.add("show"), 100);
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.className = "toast " + type;
+      toast.style.display = "block";
       setTimeout(() => {
-        toast.classList.remove("show");
-        setTimeout(() => container.removeChild(toast), 500);
+        toast.style.display = "none";
       }, 4000);
     }
   </script>
