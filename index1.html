@@ -1,30 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Chat Webhook</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/preline/dist/preline.js"></script>
   <style>
-    /* Top loading bar like YouTube */
+    /* Top loading bar */
     #loading-bar {
       position: fixed;
       top: 0;
       left: 0;
       height: 3px;
-      width: 0;
-      background: red;
-      transition: width 1.5s ease;
-      z-index: 9999;
+      background-color: red;
+      width: 0%;
+      transition: width 0.3s ease;
+      z-index: 50;
     }
 
-    /* Shimmer effect like YouTube loading */
+    /* Shimmer effect for loading text */
     .shimmer {
-      background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+      background: linear-gradient(90deg, #333 25%, #555 50%, #333 75%);
       background-size: 200% 100%;
       animation: shimmer 1.5s infinite;
-      color: transparent !important;
-      border-radius: 4px;
+      color: transparent;
+      background-clip: text;
+      -webkit-background-clip: text;
     }
 
     @keyframes shimmer {
@@ -32,108 +33,134 @@
       100% { background-position: 200% 0; }
     }
 
-    /* Toast container */
-    #toast-container {
-      position: fixed;
-      bottom: 1rem;
-      right: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      z-index: 99999;
-    }
-
+    /* Toast animations */
     .toast {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      color: white;
-      animation: slideIn 0.4s ease, fadeOut 0.5s ease 4.5s forwards;
+      transform: translateX(100%);
+      opacity: 0;
+      transition: all 0.5s ease;
     }
-
-    @keyframes slideIn {
-      from { transform: translateX(120%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+    .toast.show {
+      transform: translateX(0);
+      opacity: 1;
     }
-
-    @keyframes fadeOut {
-      to { opacity: 0; transform: translateX(120%); }
-    }
-
-    .toast-success { background: #16a34a; }
-    .toast-warning { background: #ca8a04; }
-    .toast-error { background: #dc2626; }
   </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body class="dark bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center">
 
   <!-- Loading bar -->
   <div id="loading-bar"></div>
 
-  <!-- Loading screen -->
-  <div id="loading-screen" class="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 z-50">
-    <h1 class="text-3xl font-bold shimmer">Chat Webhook</h1>
-    <p class="mt-4 shimmer">Loading...</p>
+  <!-- Splash Screen -->
+  <div id="splash" class="fixed inset-0 flex items-center justify-center bg-gray-900 z-40">
+    <h1 id="splash-text" class="text-4xl font-bold shimmer">Loading...</h1>
   </div>
 
-  <!-- Main content -->
-  <div id="main" class="hidden p-6">
-    <!-- Navbar -->
-    <div class="flex space-x-4 border-b border-gray-700 pb-2">
-      <button onclick="switchPage('manager')" class="px-4 py-2 bg-gray-800 rounded">Webhook Manager</button>
-      <button onclick="switchPage('sender')" class="px-4 py-2 bg-gray-800 rounded">Send Message</button>
+  <!-- Main App -->
+  <div id="app" class="hidden w-full max-w-2xl p-6">
+    <h1 class="text-3xl font-bold mb-4">Chat Webhook</h1>
+
+    <!-- Nav -->
+    <div class="flex space-x-4 mb-6">
+      <button onclick="switchPage('manage')" class="px-4 py-2 bg-gray-700 rounded">Manage Webhooks</button>
+      <button onclick="switchPage('send')" class="px-4 py-2 bg-gray-700 rounded">Send Message</button>
     </div>
 
-    <!-- Pages -->
-    <div id="manager" class="page mt-6">
-      <h2 class="text-xl font-bold">Manage Webhooks</h2>
-      <form onsubmit="addWebhook(event)" class="mt-4 flex space-x-2">
-        <input id="webhook-url" type="url" placeholder="Enter webhook URL" class="px-3 py-2 rounded bg-gray-800 w-96">
-        <button class="px-4 py-2 bg-red-600 rounded">Add</button>
-      </form>
+    <!-- Manage Webhooks -->
+    <div id="manage" class="hidden">
+      <h2 class="text-xl mb-2">Webhook Manager</h2>
+      <input id="webhook-url" type="text" placeholder="Enter webhook URL" class="w-full p-2 mb-2 bg-gray-800 rounded" />
+      <button onclick="addWebhook()" class="px-4 py-2 bg-blue-600 rounded">Add Webhook</button>
       <ul id="webhook-list" class="mt-4 space-y-2"></ul>
     </div>
 
-    <div id="sender" class="page mt-6 hidden">
-      <h2 class="text-xl font-bold">Send Message</h2>
-      <select id="webhook-select" class="mt-4 px-3 py-2 rounded bg-gray-800 w-96">
-        <option value="">Select a webhook</option>
-      </select>
-      <textarea id="message" placeholder="Enter your message..." class="mt-4 w-96 h-32 rounded bg-gray-800 p-2"></textarea>
-      <button onclick="sendMessage()" class="mt-4 px-4 py-2 bg-red-600 rounded">Send</button>
+    <!-- Send Message -->
+    <div id="send" class="hidden">
+      <h2 class="text-xl mb-2">Send Message</h2>
+      <select id="webhook-select" class="w-full p-2 mb-2 bg-gray-800 rounded"></select>
+      <textarea id="message-input" placeholder="Enter your message" class="w-full p-2 bg-gray-800 rounded mb-2"></textarea>
+      <button onclick="sendMessage()" class="px-4 py-2 bg-green-600 rounded">Send</button>
     </div>
   </div>
 
-  <!-- Toasts -->
-  <div id="toast-container"></div>
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
 
 <script>
-  // Loading bar + screen
-  window.addEventListener("load", () => {
+  // Splash + Loading Bar
+  window.onload = () => {
     const bar = document.getElementById("loading-bar");
-    bar.style.width = "100%";
-    setTimeout(() => {
-      document.getElementById("loading-screen").style.display = "none";
-      document.getElementById("main").classList.remove("hidden");
-      showToast("Auth system disabled", "warning");
-    }, 1500);
-  });
+    const splash = document.getElementById("splash");
+    const splashText = document.getElementById("splash-text");
+    let width = 0;
+    const interval = setInterval(() => {
+      width += 10;
+      bar.style.width = width + "%";
+      if (width >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          splash.remove();
+          document.getElementById("app").classList.remove("hidden");
+          bar.style.width = "0"; // reset
+          showToast("⚠️ Auth system disabled", "yellow");
+        }, 500);
+      }
+    }, 150);
+  };
 
   // Page switching
   function switchPage(id) {
-    document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
+    document.querySelectorAll("#app > div").forEach(el => {
+      if (el.id !== "" && el.id !== "app") el.classList.add("hidden");
+    });
     document.getElementById(id).classList.remove("hidden");
   }
 
-  // Toasts
-  function showToast(message, type="success") {
+  // Webhook manager
+  let webhooks = [];
+  function addWebhook() {
+    const url = document.getElementById("webhook-url").value.trim();
+    if (!url) return;
+    webhooks.push(url);
+
+    const li = document.createElement("li");
+    li.textContent = url;
+    li.className = "bg-gray-800 p-2 rounded";
+    document.getElementById("webhook-list").appendChild(li);
+
+    const opt = document.createElement("option");
+    opt.value = url;
+    opt.textContent = url;
+    document.getElementById("webhook-select").appendChild(opt);
+
+    document.getElementById("webhook-url").value = "";
+    showToast("✅ Webhook added", "green");
+  }
+
+  // Message sender
+  function sendMessage() {
+    const webhook = document.getElementById("webhook-select").value;
+    const message = document.getElementById("message-input").value;
+    if (!webhook || !message) return showToast("⚠️ Select webhook and enter message", "yellow");
+
+    showToast("✅ Message sent (simulation)", "green");
+    document.getElementById("message-input").value = "";
+  }
+
+  // Toast system
+  function showToast(msg, color) {
     const container = document.getElementById("toast-container");
     const toast = document.createElement("div");
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        ${type === "success" ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>` : ""}
-        ${t
+    toast.className = `toast bg-${color}-600 text-white px-4 py-2 rounded shadow`;
+    toast.innerHTML = msg;
+    container.appendChild(toast);
+
+    setTimeout(() => toast.classList.add("show"), 10);
+
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 500);
+    }, 3000);
+  }
+</script>
+</body>
+</html>
